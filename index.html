@@ -467,8 +467,10 @@
             const vantaRef = useRef(null);
             
             useEffect(() => {
+                if (cloudStatus === 'checking' || cloudStatus === 'needs_login') return;
+                
                 let vantaEffect;
-                if (window.VANTA) {
+                if (window.VANTA && vantaRef.current) {
                     vantaEffect = window.VANTA.BIRDS({
                         el: vantaRef.current,
                         mouseControls: true,
@@ -495,7 +497,7 @@
                 return () => {
                     if (vantaEffect) vantaEffect.destroy();
                 };
-            }, []);
+            }, [cloudStatus]);
             
             // ============ FIREBASE AUTH & FIRESTORE SYNC ============
             useEffect(() => {
@@ -722,10 +724,10 @@
             
             const filteredAndSortedEntries = entries
                 .filter(e => {
-                    const query = searchQuery.toLowerCase();
-                    return e.title.toLowerCase().includes(query) || 
-                           e.content.toLowerCase().includes(query) || 
-                           (e.tags && e.tags.some(t => t.toLowerCase().includes(query)));
+                    const query = (searchQuery || '').toLowerCase();
+                    return (e.title || '').toLowerCase().includes(query) || 
+                           (e.content || '').toLowerCase().includes(query) || 
+                           (e.tags && e.tags.some(t => (t || '').toLowerCase().includes(query)));
                 })
                 .filter(e => !showFavoritesOnly || e.isFavorite)
                 .sort((a, b) => {
