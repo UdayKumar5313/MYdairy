@@ -29,7 +29,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -50,7 +50,7 @@
 
         // Expose Firebase utilities to the global scope for React
         window.firebaseUtils = {
-            auth, db, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+            auth, db, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile,
             collection, doc, setDoc, deleteDoc, onSnapshot
         };
     </script>
@@ -475,6 +475,7 @@
         const DiaryApp = () => {
             const [cloudStatus, setCloudStatus] = useState('checking'); // 'checking', 'needs_login', 'connected', 'offline'
             const [user, setUser] = useState(null);
+            const [name, setName] = useState('');
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
             const [isSignUp, setIsSignUp] = useState(false);
@@ -493,6 +494,8 @@
             const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
             const [toastMessage, setToastMessage] = useState('');
             const [deleteModal, setDeleteModal] = useState({ isOpen: false, entryId: null });
+            const [showSettings, setShowSettings] = useState(false);
+            const [appName, setAppName] = useState(storage.get('appName', 'Master Diary'));
             const [trash, setTrash] = useState(storage.get('diaryTrash', []));
             const [textSize, setTextSize] = useState(storage.get('textSize', 'normal'));
             const [showZenMode, setShowZenMode] = useState(false);
@@ -621,16 +624,25 @@
             
             const handleEmailAuth = async (e) => {
                 e.preventDefault();
-                if (!email || !password) return showToast("Required fields missing");
+                if (!email || !password || (isSignUp && !name)) return showToast("Required fields missing");
                 
                 setAuthLoading(true);
                 try {
-                    const { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = window.firebaseUtils;
+                    const { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } = window.firebaseUtils;
                     if (isSignUp) {
-                        await createUserWithEmailAndPassword(auth, email, password);
+                        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                        await updateProfile(userCredential.user, { displayName: name });
+                        const newAppName = `${name}'s Diary`;
+                        setAppName(newAppName);
+                        storage.set('appName', newAppName);
                         showToast("Account created successfully!");
                     } else {
-                        await signInWithEmailAndPassword(auth, email, password);
+                        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                        if (userCredential.user.displayName) {
+                            const newAppName = `${userCredential.user.displayName}'s Diary`;
+                            setAppName(newAppName);
+                            storage.set('appName', newAppName);
+                        }
                         showToast("Signed in successfully!");
                     }
                 } catch(err) {
@@ -834,6 +846,7 @@
                                 <p className="opacity-75 mb-8 text-center text-sm">{isSignUp ? "Create an account to sync your memories." : "Sign in to access your synced memories."}</p>
                                 
                                 <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
+                                    {isSignUp && <input type="text" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} className="w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-600 dark:placeholder-gray-400 backdrop-blur-md shadow-inner" required />}
                                     <input type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-600 dark:placeholder-gray-400 backdrop-blur-md shadow-inner" required />
                                     <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-600 dark:placeholder-gray-400 backdrop-blur-md shadow-inner" required minLength="6" />
                                     <button type="submit" disabled={authLoading} className="w-full py-4 bg-gradient-to-r from-blue-500/80 to-indigo-600/80 backdrop-blur-md border border-white/20 hover:from-blue-500 hover:to-indigo-600 text-white rounded-xl font-bold text-lg transition flex justify-center items-center shadow-lg">
@@ -864,7 +877,7 @@
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-3">
                                         <i className="fas fa-book text-2xl text-blue-600"></i>
-                                        <h1 className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${darkMode ? 'from-blue-400 to-purple-400' : 'from-blue-600 to-indigo-600'} bg-clip-text text-transparent`}>Uday's Diary</h1>
+                                        <h1 className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${darkMode ? 'from-blue-400 to-purple-400' : 'from-blue-600 to-indigo-600'} bg-clip-text text-transparent truncate max-w-[200px] sm:max-w-md`}>{appName}</h1>
                                     </div>
                                     <div className="flex items-center gap-3 sm:gap-4 text-sm font-bold bg-black/5 dark:bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm shadow-inner">
                                         <div className={`hidden sm:block ${darkMode ? 'text-yellow-400' : 'text-orange-500'}`}>
@@ -904,13 +917,6 @@
                                             <i className="fas fa-spa"></i>
                                         </button>
                                         <button
-                                            onClick={() => setTextSize(textSize === 'small' ? 'normal' : textSize === 'normal' ? 'large' : 'small')}
-                                            className="px-3 py-2 bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 rounded-xl shadow-sm transition-colors text-sm font-medium text-slate-900 dark:text-white backdrop-blur-md"
-                                            title="Text Size"
-                                        >
-                                        <i className="fas fa-text-height"></i> {textSize}
-                                        </button>
-                                        <button
                                             onClick={() => {
                                                 setPrivacyMode(!privacyMode);
                                                 storage.set('privacyMode', !privacyMode);
@@ -921,11 +927,11 @@
                                             <i className={`fas fa-${privacyMode ? 'eye-slash' : 'eye'}`}></i>
                                         </button>
                                         <button
-                                            onClick={() => setDarkMode(!darkMode)}
+                                            onClick={() => setShowSettings(true)}
                                             className="px-3 py-2 bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 rounded-xl shadow-sm transition-colors text-sm font-medium text-slate-900 dark:text-white backdrop-blur-md"
-                                            title="Dark Mode"
+                                            title="Settings"
                                         >
-                                            <i className={`fas fa-${darkMode ? 'sun' : 'moon'}`}></i>
+                                            <i className="fas fa-cog"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -994,18 +1000,6 @@
                                         >
                                             <i className="fas fa-upload"></i> Import
                                         </button>
-                                        {user && (
-                                            <button
-                                                onClick={() => {
-                                                    if (window.firebaseUtils && window.firebaseUtils.auth) window.firebaseUtils.signOut(window.firebaseUtils.auth);
-                                                    else setCloudStatus('needs_login');
-                                                }}
-                                                className="px-3 py-2 bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-500/20 transition-colors text-sm font-semibold"
-                                                title="Sign Out"
-                                            >
-                                                <i className="fas fa-sign-out-alt"></i>
-                                            </button>
-                                        )}
                                         <button
                                             onClick={() => {
                                                 setCurrentEntry({ id: Date.now(), title: '', content: '', date: new Date().toISOString(), mood: null, weather: null, isFavorite: false, color: 'blue', location: '', tags: [], images: [], audioMemo: null, backgroundImage: null, youtubeUrl: null });
@@ -1870,6 +1864,65 @@
                             }}
                             onClose={() => setShowVoiceRecorder(false)}
                         />
+                    )}
+                    
+                    {showSettings && (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                            <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-slate-900 dark:text-white max-h-[90vh] overflow-y-auto hide-scrollbar">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold">Settings</h2>
+                                    <button onClick={() => setShowSettings(false)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"><i className="fas fa-times"></i></button>
+                                </div>
+                                
+                                <div className="space-y-6">
+                                    {/* User Profile */}
+                                    <div className="bg-white/10 dark:bg-black/20 p-5 rounded-2xl border border-white/20 dark:border-white/5">
+                                        <h3 className="text-xs font-bold opacity-60 mb-3 uppercase tracking-wider">Account</h3>
+                                        {user ? (
+                                            <div className="flex flex-col gap-1">
+                                                <p className="font-bold text-lg">{user.displayName || 'Anonymous User'}</p>
+                                                <p className="text-sm opacity-80 mb-4">{user.email}</p>
+                                                <button onClick={() => { window.firebaseUtils.signOut(window.firebaseUtils.auth); setShowSettings(false); }} className="w-full py-2.5 bg-red-500/20 text-red-500 dark:text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/30 transition-colors text-sm font-bold">Sign Out</button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col gap-1">
+                                                <p className="font-bold text-lg">Offline Mode</p>
+                                                <p className="text-sm opacity-80 mb-4">Data is saved locally.</p>
+                                                <button onClick={() => { setCloudStatus('needs_login'); setShowSettings(false); }} className="w-full py-2.5 bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-xl hover:bg-blue-500/30 transition-colors text-sm font-bold">Sign In / Sign Up</button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* App Customization */}
+                                    <div className="bg-white/10 dark:bg-black/20 p-5 rounded-2xl border border-white/20 dark:border-white/5 space-y-4">
+                                        <h3 className="text-xs font-bold opacity-60 mb-2 uppercase tracking-wider">Preferences</h3>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">App Name</label>
+                                            <input type="text" value={appName} onChange={(e) => { setAppName(e.target.value); storage.set('appName', e.target.value); }} className="w-full px-4 py-2.5 bg-white/20 dark:bg-black/40 border border-white/30 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder-slate-500" placeholder="E.g. My Secret Diary" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2">Text Size</label>
+                                            <div className="flex gap-2">
+                                                {['small', 'normal', 'large'].map(size => (
+                                                    <button key={size} onClick={() => { setTextSize(size); storage.set('textSize', size); }} className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all border ${textSize === size ? 'bg-blue-500/80 text-white border-blue-400/50 shadow-md' : 'bg-white/10 border-white/20 hover:bg-white/20'}`}>
+                                                        {size.charAt(0).toUpperCase() + size.slice(1)}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Data Management */}
+                                    <div className="bg-white/10 dark:bg-black/20 p-5 rounded-2xl border border-white/20 dark:border-white/5">
+                                        <h3 className="text-xs font-bold opacity-60 mb-3 uppercase tracking-wider">Data Management</h3>
+                                        <div className="flex gap-3">
+                                            <button onClick={() => { exportEntries(); setShowSettings(false); }} className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl transition-colors text-sm font-bold flex items-center justify-center gap-2"><i className="fas fa-download"></i> Export</button>
+                                            <button onClick={() => { importEntries(); setShowSettings(false); }} className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl transition-colors text-sm font-bold flex items-center justify-center gap-2"><i className="fas fa-upload"></i> Import</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     )}
                         </>
                     )}
