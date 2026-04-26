@@ -64,10 +64,11 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: transparent;
+            color: #0f172a;
         }
-        
-        @media (prefers-color-scheme: dark) {
-            body { background-color: #0f172a; color: #f1f5f9; }
+        .dark body {
+            color: #f1f5f9;
         }
         
         @media print {
@@ -111,12 +112,32 @@
         
         .grid-masonry { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
         
-        .card-color-red { border-left: 4px solid #ef4444; }
-        .card-color-blue { border-left: 4px solid #3b82f6; }
-        .card-color-green { border-left: 4px solid #10b981; }
-        .card-color-purple { border-left: 4px solid #a855f7; }
-        .card-color-yellow { border-left: 4px solid #f59e0b; }
-        .card-color-pink { border-left: 4px solid #ec4899; }
+        .card-color-red { border-left: 4px solid rgba(239, 68, 68, 0.6); }
+        .card-color-blue { border-left: 4px solid rgba(59, 130, 246, 0.6); }
+        .card-color-green { border-left: 4px solid rgba(16, 185, 129, 0.6); }
+        .card-color-purple { border-left: 4px solid rgba(168, 85, 247, 0.6); }
+        .card-color-yellow { border-left: 4px solid rgba(245, 158, 11, 0.6); }
+        .card-color-pink { border-left: 4px solid rgba(236, 72, 153, 0.6); }
+        
+        /* Glass Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px; height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05); backdrop-filter: blur(10px);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.4); }
+        
+        .dark ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .dark ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
         
         .hide-scrollbar::-webkit-scrollbar {
             display: none;
@@ -201,7 +222,7 @@
                             </button>
                             <button
                                 onClick={onConfirm}
-                                className={`px-4 py-2 rounded-xl text-white font-semibold shadow-md transition-transform hover:-translate-y-0.5 ${isDangerous ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-blue-500 to-indigo-600'}`}
+                                className={`px-4 py-2 rounded-xl text-white font-semibold shadow-md transition-transform hover:-translate-y-0.5 ${isDangerous ? 'bg-gradient-to-r from-red-500/80 to-red-600/80 backdrop-blur-md border border-white/20' : 'bg-gradient-to-r from-blue-500/80 to-indigo-600/80 backdrop-blur-md border border-white/20'}`}
                             >
                                 {confirmText}
                             </button>
@@ -320,7 +341,7 @@
             return (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-2xl flex items-center justify-center z-50 text-white">
                     <div className="text-center">
-                        <div className="breathing-circle bg-white/20 mb-8"></div>
+                        <div className="breathing-circle bg-white/20 backdrop-blur-md border border-white/30 mb-8"></div>
                         <h2 className="text-4xl font-bold mb-4 drop-shadow-lg">{breathingText}</h2>
                         <button
                             onClick={onClose}
@@ -410,7 +431,7 @@
                             {!recording ? (
                                 <button
                                     onClick={startRecording}
-                                    className="flex-1 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
+                                    className="flex-1 py-3 bg-gradient-to-r from-red-500/80 to-red-600/80 backdrop-blur-md border border-white/20 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
                                 >
                                     <i className="fas fa-circle"></i> Start Recording
                                 </button>
@@ -431,7 +452,7 @@
                             {audioUrl && (
                                 <button
                                     onClick={handleSave}
-                                    className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
+                                    className="flex-1 py-3 bg-gradient-to-r from-green-500/80 to-emerald-600/80 backdrop-blur-md border border-white/20 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
                                 >
                                     Save
                                 </button>
@@ -467,7 +488,7 @@
             const [sortBy, setSortBy] = useState('newest');
             const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
             const [viewMode, setViewMode] = useState('timeline');
-            const [darkMode, setDarkMode] = useState(storage.get('darkMode', false));
+            const darkMode = true;
             const [showDrawing, setShowDrawing] = useState(false);
             const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
             const [toastMessage, setToastMessage] = useState('');
@@ -497,10 +518,10 @@
                         minWidth: 200.00,
                         scale: 1.00,
                         scaleMobile: 1.00,
-                        backgroundColor: 0x7192f,
+                        backgroundColor: 0x0f172a,
                         backgroundAlpha: 1,
-                        color1: 0xff0000,
-                        color2: 0xd1ff,
+                        color1: 0x3b82f6,
+                        color2: 0x8b5cf6,
                         colorMode: 'varianceGradient',
                         quantity: 5,
                         birdSize: 2.50,
@@ -566,13 +587,8 @@
             };
             
             useEffect(() => {
-                if (darkMode) {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
-                storage.set('darkMode', darkMode);
-            }, [darkMode]);
+                document.documentElement.classList.add('dark');
+            }, []);
             
             useEffect(() => {
                 const timer = setInterval(() => {
@@ -798,9 +814,10 @@
             const wordGoalProgress = Math.min(100, (wordsToday / dailyGoal) * 100);
             
             return (
-                <div className={`min-h-screen ${darkMode ? 'dark' : ''}`}>
-                    <div ref={vantaRef} className="fixed inset-0 z-[-1]"></div>
+                <div className="dark">
+                    <div ref={vantaRef} className="fixed inset-0 z-0"></div>
 
+                    <div className="relative z-10 min-h-screen">
                     {/* AUTHENTICATION SPLASH SCREENS */}
                     {cloudStatus === 'checking' && (
                         <div className="flex flex-col items-center justify-center min-h-screen p-4 transition-colors">
@@ -819,7 +836,7 @@
                                 <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
                                     <input type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-600 dark:placeholder-gray-400 backdrop-blur-md shadow-inner" required />
                                     <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-600 dark:placeholder-gray-400 backdrop-blur-md shadow-inner" required minLength="6" />
-                                    <button type="submit" disabled={authLoading} className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-bold text-lg transition flex justify-center items-center shadow-lg">
+                                    <button type="submit" disabled={authLoading} className="w-full py-4 bg-gradient-to-r from-blue-500/80 to-indigo-600/80 backdrop-blur-md border border-white/20 hover:from-blue-500 hover:to-indigo-600 text-white rounded-xl font-bold text-lg transition flex justify-center items-center shadow-lg">
                                         {authLoading ? <i className="fas fa-spinner fa-spin"></i> : (isSignUp ? "Sign Up" : "Sign In")}
                                     </button>
                                 </form>
@@ -1008,7 +1025,7 @@
                                         <span>{wordsToday} / {dailyGoal} words</span>
                                     </div>
                                     <div className="w-full bg-white/20 dark:bg-black/40 rounded-full h-2 backdrop-blur-md border border-white/30 dark:border-white/10 overflow-hidden">
-                                        <div className="bg-gradient-to-r from-emerald-400 to-teal-500 h-full rounded-full transition-all duration-1000" style={{ width: `${wordGoalProgress}%` }}></div>
+                                                <div className="bg-gradient-to-r from-blue-400/80 to-indigo-500/80 h-full rounded-full transition-all duration-1000" style={{ width: `${wordGoalProgress}%` }}></div>
                                     </div>
                                 </div>
                                 
@@ -1071,7 +1088,7 @@
                     
                     {/* ENTRIES DISPLAY */}
                     {currentRoute === 'dashboard' && (
-                        <div className={`max-w-7xl mx-auto px-4 py-8`}>
+                        <div className={`max-w-7xl mx-auto px-4 pb-12`}>
                             {filteredAndSortedEntries.length === 0 ? (
                                 <div className="text-center py-16 rounded-3xl backdrop-blur-2xl border border-white/30 dark:border-white/10 bg-white/20 dark:bg-black/40 shadow-xl text-slate-900 dark:text-white">
                                     <i className="fas fa-inbox text-4xl text-gray-400 mb-4"></i>
@@ -1171,10 +1188,11 @@
                     {/* EDITOR VIEW */}
                     {currentRoute === 'editor' && currentEntry && (
                         <div className="min-h-screen">
-                            <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border-b border-white/30 dark:border-white/10 p-4 sticky top-0 z-30 shadow-sm text-slate-900 dark:text-white">
-                                <div className="flex justify-between items-center max-w-4xl mx-auto">
-                                    <h2 className="text-lg sm:text-2xl font-bold truncate">Edit Entry</h2>
-                                    <div className="flex gap-2">
+                            <div className="sticky top-4 z-30 max-w-5xl mx-auto px-4 mb-6">
+                                <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl shadow-xl flex justify-between items-center p-3 sm:p-4 text-slate-900 dark:text-white">
+                                    <button onClick={() => { setCurrentRoute('dashboard'); setCurrentEntry(null); }} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"><i className="fas fa-arrow-left"></i></button>
+                                    <div className="flex gap-2 items-center">
+                                        <button onClick={() => setFocusMode(!focusMode)} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all text-purple-500"><i className={`fas fa-${focusMode ? 'compress' : 'expand'}`}></i></button>
                                         <button
                                             onClick={() => {
                                                 saveEntry(currentEntry);
@@ -1182,24 +1200,9 @@
                                                 setCurrentEntry(null);
                                                 showToast('Entry saved');
                                             }}
-                                            className="px-4 sm:px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 font-bold text-sm sm:text-base"
+                                            className="px-4 sm:px-5 py-2 bg-gradient-to-r from-green-500/80 to-emerald-600/80 backdrop-blur-md border border-white/20 text-white rounded-xl shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 font-bold text-sm sm:text-base"
                                         >
                                             <i className="fas fa-save"></i> <span className="hidden sm:inline">Save</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setFocusMode(!focusMode)}
-                                            className="px-4 py-2 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl hover:bg-purple-500/20 transition-colors font-semibold"
-                                        >
-                                            <i className={`fas fa-${focusMode ? 'compress' : 'expand'}`}></i>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setCurrentRoute('dashboard');
-                                                setCurrentEntry(null);
-                                            }}
-                                            className="px-4 py-2 rounded-xl transition-colors font-semibold bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
-                                        >
-                                            Done
                                         </button>
                                     </div>
                                 </div>
@@ -1285,7 +1288,7 @@
                                 
                                 {/* TOOLBAR */}
                                 {!focusMode && (
-                                    <div className="mt-6 pt-6 border-t border-white/30 dark:border-white/10 flex flex-wrap gap-3">
+                                    <div className="mt-6 pt-6 border-t border-white/30 dark:border-white/10 flex gap-2 overflow-x-auto hide-scrollbar pb-2">
                                         <button
                                             onClick={() => {
                                                 const textarea = document.querySelector('textarea');
@@ -1298,7 +1301,7 @@
                                                 const after = text.substring(end);
                                             setCurrentEntry(prev => ({ ...prev, content: before + '**' + selected + '**' + after }));
                                             }}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-bold"></i> <span className="hidden sm:inline">Bold</span>
                                         </button>
@@ -1315,7 +1318,7 @@
                                                 const after = text.substring(end);
                                             setCurrentEntry(prev => ({ ...prev, content: before + '_' + selected + '_' + after }));
                                             }}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-italic"></i> <span className="hidden sm:inline">Italic</span>
                                         </button>
@@ -1331,7 +1334,7 @@
                                                 const after = text.substring(end);
                                             setCurrentEntry(prev => ({ ...prev, content: before + '\n- ' + after }));
                                             }}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-list"></i> <span className="hidden sm:inline">List</span>
                                         </button>
@@ -1347,7 +1350,7 @@
                                                 const after = text.substring(end);
                                             setCurrentEntry(prev => ({ ...prev, content: before + '\n> ' + after }));
                                             }}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-quote-right"></i> <span className="hidden sm:inline">Quote</span>
                                         </button>
@@ -1363,7 +1366,7 @@
                                                 const after = text.substring(end);
                                             setCurrentEntry(prev => ({ ...prev, content: before + '\n### ' + after }));
                                             }}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-heading"></i> <span className="hidden sm:inline">Header</span>
                                         </button>
@@ -1375,7 +1378,7 @@
                                                 setCurrentEntry({ ...currentEntry, tags: uniqueTags });
                                                 showToast('Tags auto-generated');
                                             }}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-wand-magic-sparkles text-purple-500"></i> <span className="hidden sm:inline">Tag</span>
                                         </button>
@@ -1402,7 +1405,7 @@
                                                     }
                                                 );
                                             }}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-location-dot text-blue-500"></i> <span className="hidden sm:inline">Location</span>
                                         </button>
@@ -1415,12 +1418,12 @@
                                                     showToast('Background image set');
                                                 }
                                             }}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-image text-indigo-500"></i> <span className="hidden sm:inline">Cover</span>
                                         </button>
                                         
-                                        <label className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium cursor-pointer transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md">
+                                        <label className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium cursor-pointer transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md">
                                             <i className="fas fa-camera text-green-500"></i> <span className="hidden sm:inline">Photo</span>
                                             <input
                                                 type="file"
@@ -1460,21 +1463,21 @@
                                                     alert('Speech recognition not supported in this browser.');
                                                 }
                                             }}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-microphone text-orange-500"></i> <span className="hidden sm:inline">Dictate</span>
                                         </button>
                                         
                                         <button
                                             onClick={() => setShowVoiceRecorder(true)}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-record-vinyl text-red-500"></i> <span className="hidden sm:inline">Audio</span>
                                         </button>
                                         
                                         <button
                                             onClick={() => setShowDrawing(true)}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-paintbrush text-pink-500"></i> <span className="hidden sm:inline">Draw</span>
                                         </button>
@@ -1492,7 +1495,7 @@
                                                     }
                                                 }
                                             }}
-                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                            className="shrink-0 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fab fa-youtube text-red-600"></i> <span className="hidden sm:inline">Video</span>
                                         </button>
@@ -1579,98 +1582,29 @@
                             <div className="absolute inset-0 bg-black/60 backdrop-blur-md"></div>
                             )}
                             
-                            <div className="fixed top-6 right-6 z-40 flex gap-3 no-print flex-wrap justify-end">
-                                <button
-                                    onClick={() => window.print()}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
-                                >
-                                    <i className="fas fa-print"></i> Print
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        const text = `# ${currentEntry.title || 'Untitled'}\n\n*Date: ${new Date(currentEntry.date).toLocaleDateString()}*\n\n${currentEntry.content}`;
-                                        const blob = new Blob([text], {type: 'text/markdown'});
-                                        const url = URL.createObjectURL(blob);
-                                        const a = document.createElement('a');
-                                        a.href = url;
-                                        a.download = `${currentEntry.title ? currentEntry.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'diary_entry'}.md`;
-                                        a.click();
-                                        URL.revokeObjectURL(url);
-                                        showToast('Markdown downloaded');
-                                    }}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
-                                    title="Download as Markdown"
-                                >
-                                    <i className="fab fa-markdown"></i> <span className="hidden sm:inline">MD</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (navigator.share) {
-                                            navigator.share({
-                                                title: currentEntry.title,
-                                                text: currentEntry.content
-                                            }).catch(console.error);
-                                        } else {
-                                            showToast('Web Share not supported');
-                                        }
-                                    }}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
-                                >
-                                    <i className="fas fa-share-nodes"></i> <span className="hidden sm:inline">Share</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(`${currentEntry.title}\n${new Date(currentEntry.date).toLocaleDateString()}\n\n${currentEntry.content}`);
-                                        showToast('Copied to clipboard');
-                                    }}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
-                                >
-                                    <i className="fas fa-copy"></i> <span className="hidden sm:inline">Copy</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if ('speechSynthesis' in window) {
-                                            speechSynthesis.speak(new SpeechSynthesisUtterance(currentEntry.content));
-                                        }
-                                    }}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
-                                >
-                                    <i className="fas fa-volume-up"></i> <span className="hidden sm:inline">Listen</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setCurrentRoute('editor');
-                                    }}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
-                                >
-                                    <i className="fas fa-edit"></i> <span className="hidden sm:inline">Edit</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        duplicateEntry(currentEntry.id);
-                                        setCurrentRoute('dashboard');
-                                    }}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
-                                >
-                                    <i className="fas fa-copy"></i> <span className="hidden sm:inline">Duplicate</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setDeleteModal({ isOpen: true, entryId: currentEntry.id });
-                                    }}
-                                    className="px-4 py-2 bg-red-500/80 hover:bg-red-600/90 backdrop-blur-md text-white border border-red-500/50 rounded-xl shadow-lg transition-all"
-                                >
-                                    <i className="fas fa-trash"></i>
-                                </button>
-                                <button
-                                    onClick={() => setCurrentRoute('dashboard')}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
-                                >
-                                    <i className="fas fa-arrow-left"></i> <span className="hidden sm:inline">Back</span>
-                                </button>
+                            {/* FLOATING ACTION DOCK */}
+                            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex gap-2 p-2 bg-white/20 dark:bg-black/50 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-full shadow-2xl overflow-x-auto max-w-[95vw] hide-scrollbar text-slate-900 dark:text-white no-print">
+                                <button onClick={() => setCurrentRoute('dashboard')} className="shrink-0 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all" title="Back"><i className="fas fa-arrow-left"></i></button>
+                                <button onClick={() => setCurrentRoute('editor')} className="shrink-0 w-12 h-12 rounded-full bg-blue-500/80 backdrop-blur-md border border-white/20 text-white shadow-lg shadow-blue-500/30 flex items-center justify-center transition-all hover:scale-105" title="Edit"><i className="fas fa-pen"></i></button>
+                                <button onClick={() => window.print()} className="shrink-0 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all" title="Print"><i className="fas fa-print"></i></button>
+                                <button onClick={() => {
+                                    const text = `# ${currentEntry.title || 'Untitled'}\n\n*Date: ${new Date(currentEntry.date).toLocaleDateString()}*\n\n${currentEntry.content}`;
+                                    const blob = new Blob([text], {type: 'text/markdown'});
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a'); a.href = url; a.download = `${currentEntry.title ? currentEntry.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'diary_entry'}.md`; a.click();
+                                    URL.revokeObjectURL(url); showToast('Markdown downloaded');
+                                }} className="shrink-0 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all" title="Download MD"><i className="fab fa-markdown"></i></button>
+                                <button onClick={() => {
+                                    if (navigator.share) navigator.share({ title: currentEntry.title, text: currentEntry.content }).catch(console.error);
+                                    else showToast('Web Share not supported');
+                                }} className="shrink-0 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all" title="Share"><i className="fas fa-share-nodes"></i></button>
+                                <button onClick={() => { navigator.clipboard.writeText(`${currentEntry.title}\n${currentEntry.content}`); showToast('Copied'); }} className="shrink-0 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all" title="Copy"><i className="fas fa-copy"></i></button>
+                                <button onClick={() => { if ('speechSynthesis' in window) speechSynthesis.speak(new SpeechSynthesisUtterance(currentEntry.content)); }} className="shrink-0 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all" title="Listen"><i className="fas fa-volume-up"></i></button>
+                                <button onClick={() => { duplicateEntry(currentEntry.id); setCurrentRoute('dashboard'); }} className="shrink-0 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all" title="Duplicate"><i className="fas fa-clone"></i></button>
+                                <button onClick={() => setDeleteModal({ isOpen: true, entryId: currentEntry.id })} className="shrink-0 w-12 h-12 rounded-full bg-red-500/80 backdrop-blur-md border border-white/20 text-white shadow-lg shadow-red-500/30 flex items-center justify-center transition-all hover:scale-105" title="Delete"><i className="fas fa-trash"></i></button>
                             </div>
                             
-                            <div className={`relative max-w-3xl mx-auto p-10 pt-12 my-12 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/30 dark:border-white/10 text-slate-900 dark:text-white ${currentEntry.backgroundImage ? 'bg-black/60 text-white' : 'bg-white/20 dark:bg-black/40'}`}>
+                            <div className={`relative max-w-3xl mx-auto p-10 pt-12 mt-12 mb-28 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/30 dark:border-white/10 text-slate-900 dark:text-white ${currentEntry.backgroundImage ? 'bg-black/60 text-white' : 'bg-white/20 dark:bg-black/40'}`}>
                                 <div className="flex justify-between items-start mb-6">
                                     <div>
                                         <p className="text-sm font-medium opacity-75 mb-3 tracking-wide uppercase">
@@ -1761,16 +1695,16 @@
                     
                     {/* INSIGHTS VIEW */}
                     {currentRoute === 'insights' && (
-                        <div className="min-h-screen p-8">
-                            <div className="max-w-6xl mx-auto">
-                                <button
-                                    onClick={() => setCurrentRoute('dashboard')}
-                                    className="mb-8 px-5 py-2.5 bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md rounded-xl shadow-md transition-all"
-                                >
-                                    <i className="fas fa-arrow-left"></i> Back
-                                </button>
-                                
-                                <h2 className={`text-4xl font-bold mb-10 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Your Insights</h2>
+                        <div className="min-h-screen pb-12">
+                            <div className="sticky top-4 z-40 max-w-6xl mx-auto px-4 mb-8">
+                                <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl shadow-xl flex justify-between items-center p-4 text-slate-900 dark:text-white">
+                                    <button onClick={() => setCurrentRoute('dashboard')} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"><i className="fas fa-arrow-left"></i></button>
+                                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Your Insights</h2>
+                                    <div className="w-10"></div> {/* Spacer for center alignment */}
+                                </div>
+                            </div>
+                            
+                            <div className="max-w-6xl mx-auto px-4">
                                 
                                 {/* KPI CARDS */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
@@ -1823,32 +1757,28 @@
                     
                     {/* TRASH VIEW */}
                     {currentRoute === 'trash' && (
-                        <div className="min-h-screen p-8">
-                            <div className="max-w-6xl mx-auto">
-                                <div className="flex justify-between items-center mb-6">
+                        <div className="min-h-screen pb-12">
+                            <div className="sticky top-4 z-40 max-w-6xl mx-auto px-4 mb-8">
+                                <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl shadow-xl flex justify-between items-center p-4 text-slate-900 dark:text-white">
+                                    <button onClick={() => setCurrentRoute('dashboard')} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"><i className="fas fa-arrow-left"></i></button>
                                     <div>
-                                        <h2 className={`text-4xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Trash</h2>
-                                        <p className={`text-sm opacity-75 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{trash.length} items</p>
+                                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-center">Trash</h2>
+                                        <p className="text-xs opacity-70 text-center">{trash.length} items</p>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div>
                                         {trash.length > 0 && (
                                             <button
                                                 onClick={() => setDeleteModal({ isOpen: true, entryId: 'empty-trash' })}
-                                                className="px-5 py-2.5 bg-red-600/90 hover:bg-red-700 backdrop-blur-md text-white rounded-xl shadow-md transition-all font-semibold"
+                                                className="px-4 py-2 bg-red-500/80 hover:bg-red-600/90 backdrop-blur-md border border-white/20 text-white rounded-xl shadow-md transition-all text-sm font-semibold flex items-center gap-2"
                                             >
-                                                <i className="fas fa-trash"></i> Empty Trash
+                                                <i className="fas fa-trash"></i> <span className="hidden sm:inline">Empty</span>
                                             </button>
                                         )}
-                                        <button
-                                            onClick={() => setCurrentRoute('dashboard')}
-                                            className="px-5 py-2.5 bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md rounded-xl shadow-md transition-all font-semibold"
-                                        >
-                                            <i className="fas fa-arrow-left"></i> Back
-                                        </button>
                                     </div>
                                 </div>
-                                
-                                <div className="space-y-4">
+                            </div>
+                            
+                            <div className="max-w-6xl mx-auto px-4 space-y-4">
                                     {trash.length === 0 ? (
                                         <div className="text-center py-16 rounded-3xl backdrop-blur-2xl border border-white/30 dark:border-white/10 bg-white/20 dark:bg-black/40 shadow-xl text-slate-900 dark:text-white">
                                             <i className="fas fa-trash-can text-5xl opacity-40 mb-4"></i>
@@ -1864,13 +1794,13 @@
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => restoreEntry(entry.id)}
-                                                        className="px-4 py-2 bg-green-500/20 text-green-600 dark:text-green-400 hover:bg-green-500/30 rounded-xl font-medium transition-colors"
+                                                        className="px-4 py-2 bg-green-500/20 border border-green-500/30 backdrop-blur-md text-green-600 dark:text-green-400 hover:bg-green-500/30 rounded-xl font-medium transition-colors"
                                                     >
                                                         <i className="fas fa-redo"></i> Restore
                                                     </button>
                                                     <button
                                                         onClick={() => permanentlyDeleteEntry(entry.id)}
-                                                        className="px-4 py-2 bg-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/30 rounded-xl font-medium transition-colors"
+                                                        className="px-4 py-2 bg-red-500/20 border border-red-500/30 backdrop-blur-md text-red-600 dark:text-red-400 hover:bg-red-500/30 rounded-xl font-medium transition-colors"
                                                     >
                                                         <i className="fas fa-trash-alt"></i> Delete
                                                     </button>
@@ -1880,7 +1810,6 @@
                                     )}
                                 </div>
                             </div>
-                        </div>
                     )}
                     
                     {/* SCROLL TO TOP FAB */}
@@ -1944,6 +1873,7 @@
                     )}
                         </>
                     )}
+                    </div>
                 </div>
             );
         };
