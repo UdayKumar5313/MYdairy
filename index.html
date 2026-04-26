@@ -117,6 +117,22 @@
         .card-color-purple { border-left: 4px solid #a855f7; }
         .card-color-yellow { border-left: 4px solid #f59e0b; }
         .card-color-pink { border-left: 4px solid #ec4899; }
+        
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .privacy-blur {
+            filter: blur(6px);
+            transition: filter 0.3s ease;
+        }
+        .privacy-blur:hover {
+            filter: blur(0);
+        }
     </style>
 </head>
 <body>
@@ -161,7 +177,7 @@
             if (!visible) return null;
             
             return (
-                <div className="toast-enter fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg">
+                <div className="toast-enter fixed bottom-4 right-4 bg-white/20 dark:bg-black/40 backdrop-blur-xl border border-white/30 dark:border-white/10 text-slate-900 dark:text-white px-6 py-3 rounded-xl shadow-2xl z-50">
                     {message}
                 </div>
             );
@@ -262,10 +278,10 @@
                             <button onClick={handleClear} className="px-4 py-2 bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 rounded-lg hover:bg-white/40 dark:hover:bg-black/60 font-medium backdrop-blur-md">
                                 <i className="fas fa-trash"></i> Clear
                             </button>
-                            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-medium text-white">
+                            <button onClick={handleSave} className="px-4 py-2 bg-blue-500/80 hover:bg-blue-600/90 border border-blue-400/50 backdrop-blur-md rounded-lg font-medium text-white transition-colors">
                                 <i className="fas fa-save"></i> Save
                             </button>
-                            <button onClick={onClose} className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 font-medium text-white">
+                            <button onClick={onClose} className="px-4 py-2 bg-red-500/80 hover:bg-red-600/90 border border-red-400/50 backdrop-blur-md rounded-lg font-medium text-white transition-colors">
                                 <i className="fas fa-times"></i> Close
                             </button>
                         </div>
@@ -279,7 +295,7 @@
                         onTouchStart={startDrawing}
                         onTouchMove={draw}
                         onTouchEnd={stopDrawing}
-                        className="cursor-crosshair flex-1 touch-none bg-white/50 dark:bg-white/80 backdrop-blur-md rounded-b-2xl shadow-xl"
+                        className="cursor-crosshair flex-1 touch-none bg-white/20 dark:bg-black/40 backdrop-blur-2xl rounded-b-2xl shadow-xl"
                     ></canvas>
                 </div>
             );
@@ -461,8 +477,13 @@
             const [showZenMode, setShowZenMode] = useState(false);
             const [dayStreak, setDayStreak] = useState(storage.get('dayStreak', 0));
             const [focusMode, setFocusMode] = useState(false);
+            const [privacyMode, setPrivacyMode] = useState(storage.get('privacyMode', false));
+            const [activeTagFilter, setActiveTagFilter] = useState(null);
+            const [showScrollTop, setShowScrollTop] = useState(false);
             
             const vantaRef = useRef(null);
+            const currentEntryRef = useRef(currentEntry);
+            const currentRouteRef = useRef(currentRoute);
             
             useEffect(() => {
                 let vantaEffect;
@@ -560,6 +581,28 @@
                 return () => clearInterval(timer);
             }, []);
             
+            // Keep refs updated for setInterval Auto-save
+            useEffect(() => { currentEntryRef.current = currentEntry; }, [currentEntry]);
+            useEffect(() => { currentRouteRef.current = currentRoute; }, [currentRoute]);
+            const saveEntryRef = useRef(null);
+
+            // ============ SCROLL TO TOP & AUTO-SAVE ============
+            useEffect(() => {
+                const handleScroll = () => setShowScrollTop(window.scrollY > 300);
+                window.addEventListener('scroll', handleScroll);
+                
+                const autoSaveInterval = setInterval(() => {
+                    if (currentRouteRef.current === 'editor' && currentEntryRef.current && currentEntryRef.current.id && saveEntryRef.current) {
+                        saveEntryRef.current(currentEntryRef.current, true);
+                    }
+                }, 15000); // Autosave every 15s
+                
+                return () => {
+                    window.removeEventListener('scroll', handleScroll);
+                    clearInterval(autoSaveInterval);
+                };
+            }, []);
+            
             const handleEmailAuth = async (e) => {
                 e.preventDefault();
                 if (!email || !password) return showToast("Required fields missing");
@@ -581,71 +624,84 @@
                 }
             };
             
-            const saveEntry = async (entry) => {
-                const updated = entries.map(e => e.id === entry.id ? entry : e);
-                if (!entries.find(e => e.id === entry.id)) {
-                    updated.push(entry);
-                }
-                setEntries(updated);
-                storage.set('diaryEntries', updated);
-
+            const saveEntry = async (entry, isSilent = false) => {
+                setEntries(prev => {
+                    const updated = prev.map(e => e.id === entry.id ? entry : e);
+                    if (!prev.find(e => e.id === entry.id)) updated.push(entry);
+                    storage.set('diaryEntries', updated);
+                    return updated;
+                });
                 if (cloudStatus === 'connected' && user && window.firebaseUtils) {
                     try {
                         const { db, doc, setDoc } = window.firebaseUtils;
                         await setDoc(doc(db, `users/${user.uid}/entries`, entry.id.toString()), entry);
                     } catch(e) { console.error("Cloud save failed", e); }
                 }
+                if (!isSilent) showToast('Entry saved');
             };
             
+            useEffect(() => { saveEntryRef.current = saveEntry; }, [saveEntry]);
+            
             const deleteEntry = async (entryId) => {
-                const entryToDelete = entries.find(e => e.id === entryId);
-                if (entryToDelete) {
-                    const newEntries = entries.filter(e => e.id !== entryId);
-                    setEntries(newEntries);
-                    storage.set('diaryEntries', newEntries);
-                    
-                    const trashedItem = { ...entryToDelete, deletedAt: new Date().toISOString() };
-                    const newTrash = [...trash, trashedItem];
-                    setTrash(newTrash);
-                    storage.set('diaryTrash', newTrash);
-                    
-                    if (cloudStatus === 'connected' && user && window.firebaseUtils) {
-                        try {
-                            const { db, doc, setDoc, deleteDoc } = window.firebaseUtils;
-                            await setDoc(doc(db, `users/${user.uid}/trash`, entryId.toString()), trashedItem);
-                            await deleteDoc(doc(db, `users/${user.uid}/entries`, entryId.toString()));
-                        } catch(e) { console.error(e); }
-                    }
-                    showToast('Entry moved to trash');
+                const deletedItem = entries.find(e => e.id === entryId);
+                if (!deletedItem) return;
+                
+                setEntries(prev => {
+                    const updated = prev.filter(e => e.id !== entryId);
+                    storage.set('diaryEntries', updated);
+                    return updated;
+                });
+                
+                const trashedItem = { ...deletedItem, deletedAt: new Date().toISOString() };
+                setTrash(prev => {
+                    const updated = [...prev, trashedItem];
+                    storage.set('diaryTrash', updated);
+                    return updated;
+                });
+                
+                if (cloudStatus === 'connected' && user && window.firebaseUtils) {
+                    try {
+                        const { db, doc, setDoc, deleteDoc } = window.firebaseUtils;
+                        await setDoc(doc(db, `users/${user.uid}/trash`, entryId.toString()), trashedItem);
+                        await deleteDoc(doc(db, `users/${user.uid}/entries`, entryId.toString()));
+                    } catch(e) { console.error(e); }
                 }
+                showToast('Entry moved to trash');
             };
             
             const restoreEntry = async (entryId) => {
-                const entryToRestore = trash.find(e => e.id === entryId);
-                if (entryToRestore) {
-                    const { deletedAt, ...entry } = entryToRestore;
-                    setEntries([...entries, entry]);
-                    storage.set('diaryEntries', [...entries, entry]);
-                    
-                    const newTrash = trash.filter(e => e.id !== entryId);
-                    setTrash(newTrash);
-                    storage.set('diaryTrash', newTrash);
-                    
-                    if (cloudStatus === 'connected' && user && window.firebaseUtils) {
-                        try {
-                            const { db, doc, setDoc, deleteDoc } = window.firebaseUtils;
-                            await setDoc(doc(db, `users/${user.uid}/entries`, entryId.toString()), entry);
-                            await deleteDoc(doc(db, `users/${user.uid}/trash`, entryId.toString()));
-                        } catch(e) { console.error(e); }
-                    }
-                    showToast('Entry restored');
+                const itemToRestore = trash.find(e => e.id === entryId);
+                if (!itemToRestore) return;
+                
+                setTrash(prev => {
+                    const updated = prev.filter(e => e.id !== entryId);
+                    storage.set('diaryTrash', updated);
+                    return updated;
+                });
+                
+                const { deletedAt, ...entry } = itemToRestore;
+                setEntries(prev => {
+                    const updated = [...prev, entry];
+                    storage.set('diaryEntries', updated);
+                    return updated;
+                });
+                
+                if (cloudStatus === 'connected' && user && window.firebaseUtils) {
+                    try {
+                        const { db, doc, setDoc, deleteDoc } = window.firebaseUtils;
+                        await setDoc(doc(db, `users/${user.uid}/entries`, entryId.toString()), entry);
+                        await deleteDoc(doc(db, `users/${user.uid}/trash`, entryId.toString()));
+                    } catch(e) { console.error(e); }
                 }
+                showToast('Entry restored');
             };
             
             const permanentlyDeleteEntry = async (entryId) => {
-                const newTrash = trash.filter(e => e.id !== entryId);
-                setTrash(newTrash);
-                storage.set('diaryTrash', newTrash);
+                setTrash(prev => {
+                    const updated = prev.filter(e => e.id !== entryId);
+                    storage.set('diaryTrash', updated);
+                    return updated;
+                });
                 if (cloudStatus === 'connected' && user && window.firebaseUtils) {
                     try {
                         const { db, doc, deleteDoc } = window.firebaseUtils;
@@ -656,12 +712,13 @@
             };
             
             const emptyTrash = async () => {
+                const currentTrash = [...trash];
                 setTrash([]);
                 storage.set('diaryTrash', []);
                 if (cloudStatus === 'connected' && user && window.firebaseUtils) {
                     try {
                         const { db, doc, deleteDoc } = window.firebaseUtils;
-                        for (const item of trash) {
+                        for (const item of currentTrash) {
                             await deleteDoc(doc(db, `users/${user.uid}/trash`, item.id.toString()));
                         }
                     } catch(e) { console.error(e); }
@@ -672,10 +729,7 @@
             const duplicateEntry = (entryId) => {
                 const entryToDuplicate = entries.find(e => e.id === entryId);
                 if (entryToDuplicate) {
-                    const newEntry = { ...entryToDuplicate, id: Date.now(), date: new Date().toISOString() };
-                    setEntries([...entries, newEntry]);
-                    storage.set('diaryEntries', [...entries, newEntry]);
-                    showToast('Entry duplicated');
+                    saveEntry({ ...entryToDuplicate, id: Date.now(), date: new Date().toISOString() });
                 }
             };
             
@@ -726,6 +780,7 @@
                            (e.tags && e.tags.some(t => (t || '').toLowerCase().includes(query)));
                 })
                 .filter(e => !showFavoritesOnly || e.isFavorite)
+                .filter(e => !activeTagFilter || (e.tags && e.tags.includes(activeTagFilter)))
                 .sort((a, b) => {
                     switch(sortBy) {
                         case 'oldest': return new Date(a.date) - new Date(b.date);
@@ -734,6 +789,13 @@
                         default: return new Date(b.date) - new Date(a.date);
                     }
                 });
+                
+            // Pre-calculations for Insights & Views
+            const allTags = [...new Set(entries.flatMap(e => e.tags || []))];
+            const wordsToday = entries.filter(e => new Date(e.date).toDateString() === new Date().toDateString())
+                .reduce((sum, e) => sum + (e.content ? e.content.trim().split(/\s+/).filter(w => w.length > 0).length : 0), 0);
+            const dailyGoal = 500;
+            const wordGoalProgress = Math.min(100, (wordsToday / dailyGoal) * 100);
             
             return (
                 <div className={`min-h-screen ${darkMode ? 'dark' : ''}`}>
@@ -783,12 +845,12 @@
                         <header className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border-b border-white/30 dark:border-white/10 sticky top-0 z-40 shadow-sm text-slate-900 dark:text-white">
                             <div className="max-w-7xl mx-auto px-4 py-4">
                                 <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-3">
                                         <i className="fas fa-book text-2xl text-blue-600"></i>
-                                        <h1 className={`text-3xl font-bold bg-gradient-to-r ${darkMode ? 'from-blue-400 to-purple-400' : 'from-blue-600 to-indigo-600'} bg-clip-text text-transparent`}>Uday's Diary</h1>
+                                        <h1 className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${darkMode ? 'from-blue-400 to-purple-400' : 'from-blue-600 to-indigo-600'} bg-clip-text text-transparent`}>Uday's Diary</h1>
                                     </div>
-                                    <div className="flex items-center gap-4 text-sm font-bold bg-black/5 dark:bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
-                                        <div className={`${darkMode ? 'text-yellow-400' : 'text-orange-500'}`}>
+                                    <div className="flex items-center gap-3 sm:gap-4 text-sm font-bold bg-black/5 dark:bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm shadow-inner">
+                                        <div className={`hidden sm:block ${darkMode ? 'text-yellow-400' : 'text-orange-500'}`}>
                                             <i className="fas fa-fire"></i> {dayStreak}-Day Streak
                                         </div>
                                         <div className={darkMode ? 'text-blue-300' : 'text-blue-600'}>
@@ -805,13 +867,14 @@
                                 </div>
                                 
                                 <div className="flex items-center justify-between flex-wrap gap-4">
-                                    <div className="flex-1 max-w-md">
+                                    <div className="flex-1 min-w-[280px] max-w-md relative">
+                                        <i className="fas fa-search absolute left-4 top-3.5 text-gray-500"></i>
                                         <input
                                             type="text"
                                             placeholder="Search entries..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full px-5 py-2.5 rounded-xl bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-600 dark:placeholder-gray-400 backdrop-blur-md shadow-inner focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                            className="w-full pl-10 pr-5 py-2.5 rounded-xl bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-600 dark:placeholder-gray-400 backdrop-blur-md shadow-inner focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                         />
                                     </div>
                                     
@@ -831,6 +894,16 @@
                                         <i className="fas fa-text-height"></i> {textSize}
                                         </button>
                                         <button
+                                            onClick={() => {
+                                                setPrivacyMode(!privacyMode);
+                                                storage.set('privacyMode', !privacyMode);
+                                            }}
+                                            className={`px-3 py-2 ${privacyMode ? 'bg-red-500/80 text-white border-red-400/50' : 'bg-white/30 dark:bg-black/50 border-white/30 dark:border-white/10 text-slate-900 dark:text-white'} hover:bg-white/40 dark:hover:bg-black/60 rounded-xl shadow-sm transition-colors text-sm font-medium backdrop-blur-md`}
+                                            title="Privacy Mode (Blur)"
+                                        >
+                                            <i className={`fas fa-${privacyMode ? 'eye-slash' : 'eye'}`}></i>
+                                        </button>
+                                        <button
                                             onClick={() => setDarkMode(!darkMode)}
                                             className="px-3 py-2 bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 rounded-xl shadow-sm transition-colors text-sm font-medium text-slate-900 dark:text-white backdrop-blur-md"
                                             title="Dark Mode"
@@ -845,7 +918,7 @@
                                         <select
                                             value={sortBy}
                                             onChange={(e) => setSortBy(e.target.value)}
-                                            className="px-4 py-2 rounded-xl text-sm font-medium bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                                            className="px-3 py-2 rounded-xl text-sm font-medium bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                                         >
                                             <option value="newest">Newest</option>
                                             <option value="oldest">Oldest</option>
@@ -854,19 +927,31 @@
                                         </select>
                                         <button
                                             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                                            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm backdrop-blur-md border ${showFavoritesOnly ? 'bg-yellow-500/80 text-white border-yellow-400/50 shadow-yellow-500/30' : 'bg-white/30 dark:bg-black/50 border-white/30 dark:border-white/10 text-slate-900 dark:text-white hover:bg-white/40 dark:hover:bg-black/60'}`}
+                                            className={`px-3 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm backdrop-blur-md border ${showFavoritesOnly ? 'bg-yellow-500/80 text-white border-yellow-400/50 shadow-yellow-500/30' : 'bg-white/30 dark:bg-black/50 border-white/30 dark:border-white/10 text-slate-900 dark:text-white hover:bg-white/40 dark:hover:bg-black/60'}`}
                                         >
                                             <i className="fas fa-star"></i> Favorites
                                         </button>
                                         <button
                                             onClick={() => setViewMode(viewMode === 'timeline' ? 'grid' : 'timeline')}
-                                            className="px-4 py-2 rounded-xl text-sm transition-colors shadow-sm bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white hover:bg-white/40 dark:hover:bg-black/60 backdrop-blur-md"
+                                            className="px-3 py-2 rounded-xl text-sm transition-colors shadow-sm bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white hover:bg-white/40 dark:hover:bg-black/60 backdrop-blur-md"
                                         >
                                             <i className={`fas fa-${viewMode === 'timeline' ? 'th' : 'list'}`}></i>
                                         </button>
                                     </div>
                                     
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 flex-wrap">
+                                        <button
+                                            onClick={() => {
+                                                if (entries.length === 0) return showToast('No entries yet');
+                                                const random = entries[Math.floor(Math.random() * entries.length)];
+                                                setCurrentEntry(random);
+                                                setCurrentRoute('reader');
+                                            }}
+                                            className="px-3 py-2 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-xl shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 text-sm font-medium"
+                                            title="Memory Roulette"
+                                        >
+                                            <i className="fas fa-dice"></i> Random
+                                        </button>
                                         <button
                                             onClick={() => setCurrentRoute('insights')}
                                             className="px-4 py-2 bg-teal-500/10 text-teal-600 dark:text-teal-400 rounded-xl hover:bg-teal-500/20 transition-colors text-sm font-semibold"
@@ -875,20 +960,20 @@
                                         </button>
                                         <button
                                             onClick={() => setCurrentRoute('trash')}
-                                            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${trash.length > 0 ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20' : 'bg-gray-200/50 text-gray-400 cursor-not-allowed'}`}
+                                            className={`px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${trash.length > 0 ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20' : 'bg-gray-200/50 text-gray-400 cursor-not-allowed'}`}
                                             disabled={trash.length === 0}
                                         >
                                             <i className="fas fa-trash"></i> Trash ({trash.length})
                                         </button>
                                         <button
                                             onClick={exportEntries}
-                                            className="px-3 py-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-500/20 transition-colors text-sm font-semibold"
+                                            className="hidden sm:inline-flex px-3 py-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-500/20 transition-colors text-sm font-semibold"
                                         >
                                             <i className="fas fa-download"></i> Export
                                         </button>
                                         <button
                                             onClick={importEntries}
-                                            className="px-3 py-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-500/20 transition-colors text-sm font-semibold"
+                                            className="hidden sm:inline-flex px-3 py-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-500/20 transition-colors text-sm font-semibold"
                                         >
                                             <i className="fas fa-upload"></i> Import
                                         </button>
@@ -911,10 +996,36 @@
                                             }}
                                             className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 text-sm font-bold"
                                         >
-                                            <i className="fas fa-plus"></i> New Entry
+                                            <i className="fas fa-plus"></i> Write
                                         </button>
                                     </div>
                                 </div>
+                                
+                                {/* DAILY GOAL PROGRESS */}
+                                <div className="mt-6 pt-4 border-t border-white/20 dark:border-white/10">
+                                    <div className="flex justify-between text-xs font-bold opacity-80 mb-1">
+                                        <span>Daily Goal</span>
+                                        <span>{wordsToday} / {dailyGoal} words</span>
+                                    </div>
+                                    <div className="w-full bg-white/20 dark:bg-black/40 rounded-full h-2 backdrop-blur-md border border-white/30 dark:border-white/10 overflow-hidden">
+                                        <div className="bg-gradient-to-r from-emerald-400 to-teal-500 h-full rounded-full transition-all duration-1000" style={{ width: `${wordGoalProgress}%` }}></div>
+                                    </div>
+                                </div>
+                                
+                                {/* TAG CLOUD */}
+                                {allTags.length > 0 && (
+                                    <div className="flex gap-2 mt-4 overflow-x-auto pb-2 hide-scrollbar">
+                                        {allTags.map(tag => (
+                                            <button
+                                                key={tag}
+                                                onClick={() => setActiveTagFilter(activeTagFilter === tag ? null : tag)}
+                                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap border ${activeTagFilter === tag ? 'bg-blue-500/90 text-white border-blue-400 shadow-md scale-105' : 'bg-white/20 dark:bg-black/40 border-white/30 dark:border-white/10 text-slate-700 dark:text-gray-300 hover:bg-white/40 dark:hover:bg-black/60'}`}
+                                            >
+                                                #{tag}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </header>
                         <div className="bg-white/10 dark:bg-black/20 backdrop-blur-xl border-b border-white/30 dark:border-white/10 px-4 py-2 text-xs font-medium tracking-wide text-slate-800 dark:text-gray-200">
@@ -922,7 +1033,6 @@
                                 <span><i className="fas fa-file-alt"></i> {entries.length} entries</span>
                                 <span><i className="fas fa-star"></i> {entries.filter(e => e.isFavorite).length} favorited</span>
                                 <span><i className="fas fa-font"></i> {entries.reduce((sum, e) => sum + (e.content ? e.content.trim().split(/\s+/).filter(w => w.length > 0).length : 0), 0)} total words</span>
-                                <span><i className="fas fa-image"></i> {entries.filter(e => e.images && e.images.length > 0).length} w/ images</span>
                             </div>
                         </div>
                         </>
@@ -988,7 +1098,7 @@
                                                         <p className={`text-xs font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                                             {new Date(entry.date).toLocaleDateString()}
                                                         </p>
-                                                        <h3 className="text-xl font-bold line-clamp-1 mt-1">{entry.title || 'Untitled'}</h3>
+                                                        <h3 className={`text-xl font-bold line-clamp-1 mt-1 ${privacyMode && !entry.backgroundImage ? 'privacy-blur' : ''}`}>{entry.title || 'Untitled'}</h3>
                                                     </div>
                                                     <div className="flex gap-2 items-center bg-black/5 dark:bg-white/5 rounded-full px-2 py-1 backdrop-blur-sm">
                                                         <span className="text-lg">
@@ -1015,7 +1125,7 @@
                                                     </div>
                                                 </div>
                                                 
-                                                <p className={`text-sm line-clamp-3 mb-4 flex-grow ${darkMode && !entry.backgroundImage ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                <p className={`text-sm line-clamp-3 mb-4 flex-grow ${darkMode && !entry.backgroundImage ? 'text-gray-300' : 'text-gray-600'} ${privacyMode && !entry.backgroundImage ? 'privacy-blur' : ''}`}>
                                                     {entry.content}
                                                 </p>
                                                 
@@ -1036,7 +1146,10 @@
                                                             </span>
                                                         )}
                                                     </div>
-                                                    {entry.tags && entry.tags.length > 0 && (
+                                                    
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-xs font-bold opacity-60"><i className="far fa-clock"></i> {Math.max(1, Math.ceil((entry.content ? entry.content.trim().split(/\s+/).filter(w => w.length > 0).length : 0) / 200))} min</span>
+                                                        {entry.tags && entry.tags.length > 0 && (
                                                         <div className="flex gap-1.5 flex-wrap justify-end ml-2">
                                                             {entry.tags.slice(0, 2).map((tag, idx) => (
                                                                 <span key={idx} className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-md font-medium">
@@ -1045,6 +1158,7 @@
                                                             ))}
                                                         </div>
                                                     )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1057,9 +1171,9 @@
                     {/* EDITOR VIEW */}
                     {currentRoute === 'editor' && currentEntry && (
                         <div className="min-h-screen">
-                            <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border-b border-white/30 dark:border-white/10 p-4 sticky top-0 z-40 shadow-sm text-slate-900 dark:text-white">
+                            <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border-b border-white/30 dark:border-white/10 p-4 sticky top-0 z-30 shadow-sm text-slate-900 dark:text-white">
                                 <div className="flex justify-between items-center max-w-4xl mx-auto">
-                                    <h2 className="text-2xl font-bold">Edit Entry</h2>
+                                    <h2 className="text-lg sm:text-2xl font-bold truncate">Edit Entry</h2>
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => {
@@ -1068,15 +1182,15 @@
                                                 setCurrentEntry(null);
                                                 showToast('Entry saved');
                                             }}
-                                            className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 font-bold"
+                                            className="px-4 sm:px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 font-bold text-sm sm:text-base"
                                         >
-                                            <i className="fas fa-save"></i> Save
+                                            <i className="fas fa-save"></i> <span className="hidden sm:inline">Save</span>
                                         </button>
                                         <button
                                             onClick={() => setFocusMode(!focusMode)}
                                             className="px-4 py-2 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl hover:bg-purple-500/20 transition-colors font-semibold"
                                         >
-                                            <i className="fas fa-circle"></i> {focusMode ? 'Exit' : 'Focus'}
+                                            <i className={`fas fa-${focusMode ? 'compress' : 'expand'}`}></i>
                                         </button>
                                         <button
                                             onClick={() => {
@@ -1186,7 +1300,7 @@
                                             }}
                                             className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
-                                            <i className="fas fa-bold text-gray-500"></i> Bold
+                                            <i className="fas fa-bold"></i> <span className="hidden sm:inline">Bold</span>
                                         </button>
                                         
                                         <button
@@ -1203,7 +1317,7 @@
                                             }}
                                             className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
-                                            <i className="fas fa-italic text-gray-500"></i> Italic
+                                            <i className="fas fa-italic"></i> <span className="hidden sm:inline">Italic</span>
                                         </button>
                                         
                                         <button
@@ -1219,7 +1333,39 @@
                                             }}
                                             className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
-                                            <i className="fas fa-list text-gray-500"></i> List
+                                            <i className="fas fa-list"></i> <span className="hidden sm:inline">List</span>
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => {
+                                                const textarea = document.querySelector('textarea');
+                                            if (!textarea) return;
+                                            const start = textarea.selectionStart || 0;
+                                            const end = textarea.selectionEnd || 0;
+                                            const text = currentEntry.content || '';
+                                                const before = text.substring(0, start);
+                                                const after = text.substring(end);
+                                            setCurrentEntry(prev => ({ ...prev, content: before + '\n> ' + after }));
+                                            }}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                        >
+                                            <i className="fas fa-quote-right"></i> <span className="hidden sm:inline">Quote</span>
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => {
+                                                const textarea = document.querySelector('textarea');
+                                            if (!textarea) return;
+                                            const start = textarea.selectionStart || 0;
+                                            const end = textarea.selectionEnd || 0;
+                                            const text = currentEntry.content || '';
+                                                const before = text.substring(0, start);
+                                                const after = text.substring(end);
+                                            setCurrentEntry(prev => ({ ...prev, content: before + '\n### ' + after }));
+                                            }}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
+                                        >
+                                            <i className="fas fa-heading"></i> <span className="hidden sm:inline">Header</span>
                                         </button>
                                         
                                         <button
@@ -1231,7 +1377,7 @@
                                             }}
                                             className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
-                                            <i className="fas fa-wand-magic-sparkles text-purple-500"></i> Auto-Tag
+                                            <i className="fas fa-wand-magic-sparkles text-purple-500"></i> <span className="hidden sm:inline">Tag</span>
                                         </button>
                                         
                                         <button
@@ -1258,7 +1404,7 @@
                                             }}
                                             className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
-                                            <i className="fas fa-location-dot text-blue-500"></i> Location
+                                            <i className="fas fa-location-dot text-blue-500"></i> <span className="hidden sm:inline">Location</span>
                                         </button>
                                         
                                         <button
@@ -1271,11 +1417,11 @@
                                             }}
                                             className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
-                                            <i className="fas fa-image text-indigo-500"></i> Background
+                                            <i className="fas fa-image text-indigo-500"></i> <span className="hidden sm:inline">Cover</span>
                                         </button>
                                         
                                         <label className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium cursor-pointer transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md">
-                                            <i className="fas fa-camera text-green-500"></i> Photo
+                                            <i className="fas fa-camera text-green-500"></i> <span className="hidden sm:inline">Photo</span>
                                             <input
                                                 type="file"
                                                 accept="image/*"
@@ -1316,21 +1462,21 @@
                                             }}
                                             className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
-                                            <i className="fas fa-microphone text-orange-500"></i> Dictate
+                                            <i className="fas fa-microphone text-orange-500"></i> <span className="hidden sm:inline">Dictate</span>
                                         </button>
                                         
                                         <button
                                             onClick={() => setShowVoiceRecorder(true)}
                                             className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
-                                            <i className="fas fa-record-vinyl text-red-500"></i> Voice Memo
+                                            <i className="fas fa-record-vinyl text-red-500"></i> <span className="hidden sm:inline">Audio</span>
                                         </button>
                                         
                                         <button
                                             onClick={() => setShowDrawing(true)}
                                             className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
-                                            <i className="fas fa-paintbrush text-pink-500"></i> Doodle
+                                            <i className="fas fa-paintbrush text-pink-500"></i> <span className="hidden sm:inline">Draw</span>
                                         </button>
                                         
                                         <button
@@ -1348,7 +1494,7 @@
                                             }}
                                             className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
-                                            <i className="fab fa-youtube text-red-600"></i> YouTube
+                                            <i className="fab fa-youtube text-red-600"></i> <span className="hidden sm:inline">Video</span>
                                         </button>
                                     </div>
                                 )}
@@ -1388,7 +1534,7 @@
                                 
                                 {/* YOUTUBE PLAYER */}
                                 {currentEntry.youtubeUrl && (
-                                    <div className="mt-6 relative rounded-2xl overflow-hidden shadow-inner aspect-video bg-black">
+                                    <div className="mt-6 relative rounded-2xl overflow-hidden shadow-inner aspect-video bg-black/40 backdrop-blur-md border border-white/30 dark:border-white/10">
                                         <iframe
                                             className="w-full h-full"
                                             src={getYouTubeEmbedUrl(currentEntry.youtubeUrl)}
@@ -1442,12 +1588,44 @@
                                 </button>
                                 <button
                                     onClick={() => {
+                                        const text = `# ${currentEntry.title || 'Untitled'}\n\n*Date: ${new Date(currentEntry.date).toLocaleDateString()}*\n\n${currentEntry.content}`;
+                                        const blob = new Blob([text], {type: 'text/markdown'});
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = `${currentEntry.title ? currentEntry.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'diary_entry'}.md`;
+                                        a.click();
+                                        URL.revokeObjectURL(url);
+                                        showToast('Markdown downloaded');
+                                    }}
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
+                                    title="Download as Markdown"
+                                >
+                                    <i className="fab fa-markdown"></i> <span className="hidden sm:inline">MD</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (navigator.share) {
+                                            navigator.share({
+                                                title: currentEntry.title,
+                                                text: currentEntry.content
+                                            }).catch(console.error);
+                                        } else {
+                                            showToast('Web Share not supported');
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
+                                >
+                                    <i className="fas fa-share-nodes"></i> <span className="hidden sm:inline">Share</span>
+                                </button>
+                                <button
+                                    onClick={() => {
                                         navigator.clipboard.writeText(`${currentEntry.title}\n${new Date(currentEntry.date).toLocaleDateString()}\n\n${currentEntry.content}`);
                                         showToast('Copied to clipboard');
                                     }}
                                     className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
                                 >
-                                    <i className="fas fa-copy"></i> Copy
+                                    <i className="fas fa-copy"></i> <span className="hidden sm:inline">Copy</span>
                                 </button>
                                 <button
                                     onClick={() => {
@@ -1457,7 +1635,7 @@
                                     }}
                                     className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
                                 >
-                                    <i className="fas fa-volume-up"></i> Read Aloud
+                                    <i className="fas fa-volume-up"></i> <span className="hidden sm:inline">Listen</span>
                                 </button>
                                 <button
                                     onClick={() => {
@@ -1465,7 +1643,7 @@
                                     }}
                                     className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
                                 >
-                                    <i className="fas fa-edit"></i> Edit
+                                    <i className="fas fa-edit"></i> <span className="hidden sm:inline">Edit</span>
                                 </button>
                                 <button
                                     onClick={() => {
@@ -1474,7 +1652,7 @@
                                     }}
                                     className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
                                 >
-                                    <i className="fas fa-copy"></i> Duplicate
+                                    <i className="fas fa-copy"></i> <span className="hidden sm:inline">Duplicate</span>
                                 </button>
                                 <button
                                     onClick={() => {
@@ -1482,13 +1660,13 @@
                                     }}
                                     className="px-4 py-2 bg-red-500/80 hover:bg-red-600/90 backdrop-blur-md text-white border border-red-500/50 rounded-xl shadow-lg transition-all"
                                 >
-                                    <i className="fas fa-trash"></i> Delete
+                                    <i className="fas fa-trash"></i>
                                 </button>
                                 <button
                                     onClick={() => setCurrentRoute('dashboard')}
-                                    className="px-4 py-2 bg-gray-600/80 hover:bg-gray-700/90 backdrop-blur-md text-white border border-gray-500/50 rounded-xl shadow-lg transition-all"
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
                                 >
-                                    <i className="fas fa-arrow-left"></i> Back
+                                    <i className="fas fa-arrow-left"></i> <span className="hidden sm:inline">Back</span>
                                 </button>
                             </div>
                             
@@ -1515,6 +1693,11 @@
                                     </div>
                                 </div>
                                 
+                                <div className="flex gap-4 mb-6 opacity-80 text-sm font-bold">
+                                    <span><i className="far fa-clock"></i> {Math.max(1, Math.ceil((currentEntry.content ? currentEntry.content.trim().split(/\s+/).filter(w => w.length > 0).length : 0) / 200))} min read</span>
+                                    <span><i className="fas fa-font"></i> {currentEntry.content ? currentEntry.content.trim().split(/\s+/).filter(w => w.length > 0).length : 0} words</span>
+                                </div>
+                                
                                 {currentEntry.location && (
                                     <p className="text-sm opacity-75 mb-4">
                                         <i className="fas fa-map-marker-alt"></i> {currentEntry.location}
@@ -1536,7 +1719,7 @@
                                 )}
                                 
                                 {currentEntry.youtubeUrl && (
-                                    <div className="mb-8 rounded-2xl overflow-hidden shadow-xl aspect-video bg-black">
+                                    <div className="mb-8 rounded-2xl overflow-hidden shadow-xl aspect-video bg-black/40 backdrop-blur-md border border-white/30 dark:border-white/10">
                                         <iframe
                                             className="w-full h-full"
                                             src={getYouTubeEmbedUrl(currentEntry.youtubeUrl)}
@@ -1552,6 +1735,8 @@
                                         const parsedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>');
                                         if (line.startsWith('# ')) return <h2 key={idx} className="text-4xl font-bold mt-8 mb-6" dangerouslySetInnerHTML={{__html: parsedLine.substring(2)}} />;
                                         if (line.startsWith('## ')) return <h3 key={idx} className="text-3xl font-bold mt-6 mb-4" dangerouslySetInnerHTML={{__html: parsedLine.substring(3)}} />;
+                                        if (line.startsWith('### ')) return <h4 key={idx} className="text-2xl font-bold mt-4 mb-3" dangerouslySetInnerHTML={{__html: parsedLine.substring(4)}} />;
+                                        if (line.startsWith('> ')) return <blockquote key={idx} className="border-l-4 border-blue-500 pl-4 py-2 my-4 italic opacity-80 bg-white/5 dark:bg-black/10 rounded-r-lg" dangerouslySetInnerHTML={{__html: parsedLine.substring(2)}} />;
                                         if (line.startsWith('- ')) return <li key={idx} className="ml-4 list-disc" dangerouslySetInnerHTML={{__html: parsedLine.substring(2)}} />;
                                         return <p key={idx} className="mb-5 whitespace-pre-wrap" dangerouslySetInnerHTML={{__html: parsedLine}} />;
                                     })}
@@ -1566,6 +1751,10 @@
                                         ))}
                                     </div>
                                 )}
+                                
+                                <div className="mt-4 text-right opacity-60 text-xs font-bold">
+                                    {currentEntry.content ? currentEntry.content.length : 0} characters
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1576,7 +1765,7 @@
                             <div className="max-w-6xl mx-auto">
                                 <button
                                     onClick={() => setCurrentRoute('dashboard')}
-                                    className="mb-8 px-5 py-2.5 bg-gray-600/80 hover:bg-gray-700 backdrop-blur-md text-white rounded-xl shadow-md transition-all"
+                                    className="mb-8 px-5 py-2.5 bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md rounded-xl shadow-md transition-all"
                                 >
                                     <i className="fas fa-arrow-left"></i> Back
                                 </button>
@@ -1652,7 +1841,7 @@
                                         )}
                                         <button
                                             onClick={() => setCurrentRoute('dashboard')}
-                                            className="px-5 py-2.5 bg-gray-600/80 hover:bg-gray-700 backdrop-blur-md text-white rounded-xl shadow-md transition-all font-semibold"
+                                            className="px-5 py-2.5 bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md rounded-xl shadow-md transition-all font-semibold"
                                         >
                                             <i className="fas fa-arrow-left"></i> Back
                                         </button>
@@ -1692,6 +1881,16 @@
                                 </div>
                             </div>
                         </div>
+                    )}
+                    
+                    {/* SCROLL TO TOP FAB */}
+                    {showScrollTop && (
+                        <button
+                            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                            className="fixed bottom-20 right-4 sm:bottom-8 sm:right-8 w-12 h-12 bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 text-slate-900 dark:text-white rounded-full shadow-2xl flex items-center justify-center hover:-translate-y-2 transition-transform z-40"
+                        >
+                            <i className="fas fa-chevron-up"></i>
+                        </button>
                     )}
                     
                     {/* ZEN MODE */}
