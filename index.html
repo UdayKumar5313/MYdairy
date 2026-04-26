@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uday's Master Diary Pro</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+    </script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React & ReactDOM from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Three.js & Vanta.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.birds.min.js"></script>
+    
+    <!-- Firebase SDK & Initialization -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCURQx_sKChUpkWCEgX4nAcr81402LDdNw",
+            authDomain: "mydairy-4fb6b.firebaseapp.com",
+            databaseURL: "https://mydairy-4fb6b-default-rtdb.firebaseio.com",
+            projectId: "mydairy-4fb6b",
+            storageBucket: "mydairy-4fb6b.firebasestorage.app",
+            messagingSenderId: "19962289772",
+            appId: "1:19962289772:web:d5715b159dbfd4315dc249",
+            measurementId: "G-WCNKCFFGKM"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Expose Firebase utilities to the global scope for React
+        window.firebaseUtils = {
+            auth, db, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+            collection, doc, setDoc, deleteDoc, onSnapshot
+        };
+    </script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            body { background-color: #0f172a; color: #f1f5f9; }
+        }
+        
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white;
+                color: black;
+            }
+            .print-page {
+                page-break-after: always;
+            }
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .breathing-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            animation: breathe 8s infinite;
+        }
+        
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(1.3); }
+            50% { transform: scale(1.3); }
+            75% { transform: scale(1); }
+        }
+        
+        .toast-enter { animation: slideIn 0.3s ease-out; }
+        .toast-exit { animation: slideOut 0.3s ease-in; }
+        
+        @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }
+        
+        .grid-masonry { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+        
+        .card-color-red { border-left: 4px solid #ef4444; }
+        .card-color-blue { border-left: 4px solid #3b82f6; }
+        .card-color-green { border-left: 4px solid #10b981; }
+        .card-color-purple { border-left: 4px solid #a855f7; }
+        .card-color-yellow { border-left: 4px solid #f59e0b; }
+        .card-color-pink { border-left: 4px solid #ec4899; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+        
+        // ============ LOCAL STORAGE HELPERS ============
+        const storage = {
+            get: (key, defaultValue = null) => {
+                try {
+                    const item = localStorage.getItem(key);
+                    return item ? JSON.parse(item) : defaultValue;
+                } catch (e) {
+                    console.warn('Storage error:', e);
+                    return defaultValue;
+                }
+            },
+            set: (key, value) => {
+                try {
+                    localStorage.setItem(key, JSON.stringify(value));
+                    return true;
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError') {
+                        alert('❌ Storage quota exceeded (5MB limit). Please delete some entries.');
+                    }
+                    return false;
+                }
+            }
+        };
+        
+        // ============ TOAST NOTIFICATION ============
+        const Toast = ({ message, duration = 3000 }) => {
+            const [visible, setVisible] = useState(true);
+            
+            useEffect(() => {
+                const timer = setTimeout(() => setVisible(false), duration);
+                return () => clearTimeout(timer);
+            }, [duration]);
+            
+            if (!visible) return null;
+            
+            return (
+                <div className="toast-enter fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg">
+                    {message}
+                </div>
+            );
+        };
+        
+        // ============ CUSTOM MODAL ============
+        const Modal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = 'Confirm', cancelText = 'Cancel', isDangerous = false }) => {
+            if (!isOpen) return null;
+            
+            return (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all">
+                        <h2 className="text-xl font-bold mb-2 dark:text-white">{title}</h2>
+                        <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={onCancel}
+                                className="px-4 py-2 rounded-xl bg-gray-200/80 dark:bg-slate-700/80 hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors font-medium"
+                            >
+                                {cancelText}
+                            </button>
+                            <button
+                                onClick={onConfirm}
+                                className={`px-4 py-2 rounded-xl text-white font-semibold shadow-md transition-transform hover:-translate-y-0.5 ${isDangerous ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-blue-500 to-indigo-600'}`}
+                            >
+                                {confirmText}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        
+        // ============ DRAWING CANVAS ============
+        const DrawingCanvas = ({ onSave, onClose }) => {
+            const canvasRef = useRef(null);
+            const [isDrawing, setIsDrawing] = useState(false);
+            
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight - 80;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+            }, []);
+            
+            const getCoordinates = (e) => {
+                if (e.touches && e.touches.length > 0) {
+                    return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+                }
+                return { clientX: e.nativeEvent.clientX, clientY: e.nativeEvent.clientY };
+            };
+            
+            const startDrawing = (e) => {
+                setIsDrawing(true);
+                const ctx = canvasRef.current.getContext('2d');
+                const rect = canvasRef.current.getBoundingClientRect();
+                const { clientX, clientY } = getCoordinates(e);
+                ctx.beginPath();
+                ctx.moveTo(clientX - rect.left, clientY - rect.top);
+            };
+            
+            const draw = (e) => {
+                if (!isDrawing) return;
+                const ctx = canvasRef.current.getContext('2d');
+                const rect = canvasRef.current.getBoundingClientRect();
+                const { clientX, clientY } = getCoordinates(e);
+                ctx.lineTo(clientX - rect.left, clientY - rect.top);
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            };
+            
+            const stopDrawing = () => {
+                setIsDrawing(false);
+            };
+            
+            const handleSave = () => {
+                const dataUrl = canvasRef.current.toDataURL('image/png');
+                onSave(dataUrl);
+                onClose();
+            };
+            
+            const handleClear = () => {
+                const ctx = canvasRef.current.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+            };
+            
+            return (
+                <div className="fixed inset-0 bg-black z-50 flex flex-col">
+                    <div className="flex justify-between items-center p-4 bg-gray-800 text-white">
+                        <h2 className="text-xl font-bold">Draw Something</h2>
+                        <div className="flex gap-3">
+                            <button onClick={handleClear} className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700 font-medium">
+                                <i className="fas fa-trash"></i> Clear
+                            </button>
+                            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-medium">
+                                <i className="fas fa-save"></i> Save
+                            </button>
+                            <button onClick={onClose} className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 font-medium">
+                                <i className="fas fa-times"></i> Close
+                            </button>
+                        </div>
+                    </div>
+                    <canvas
+                        ref={canvasRef}
+                        onMouseDown={startDrawing}
+                        onMouseMove={draw}
+                        onMouseUp={stopDrawing}
+                        onMouseLeave={stopDrawing}
+                        onTouchStart={startDrawing}
+                        onTouchMove={draw}
+                        onTouchEnd={stopDrawing}
+                        className="cursor-crosshair flex-1 touch-none bg-white"
+                    ></canvas>
+                </div>
+            );
+        };
+        
+        // ============ ZEN MODE ============
+        const ZenMode = ({ onClose }) => {
+            const [breathingText, setBreathingText] = useState('Breathe In');
+            
+            useEffect(() => {
+                const texts = ['Breathe In', 'Hold', 'Hold', 'Breathe Out'];
+                let index = 0;
+                
+                const timer = setInterval(() => {
+                    index = (index + 1) % texts.length;
+                    setBreathingText(texts[index]);
+                }, 2000);
+                
+                return () => clearInterval(timer);
+            }, []);
+            
+            return (
+                <div className="fixed inset-0 bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center z-50">
+                    <div className="text-center">
+                        <div className="breathing-circle bg-white/20 mb-8"></div>
+                        <h2 className="text-4xl font-bold text-white mb-4">{breathingText}</h2>
+                        <button
+                            onClick={onClose}
+                            className="mt-16 px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ VOICE RECORDER ============
+        const VoiceRecorder = ({ onSave, onClose }) => {
+            const [recording, setRecording] = useState(false);
+            const [audioUrl, setAudioUrl] = useState(null);
+            const mediaRecorderRef = useRef(null);
+            const streamRef = useRef(null);
+            const chunksRef = useRef([]);
+            
+            const startRecording = async () => {
+                try {
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        alert('Microphone access is not supported in this environment (Requires HTTPS).');
+                        return;
+                    }
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    streamRef.current = stream;
+                    const mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorderRef.current = mediaRecorder;
+                    chunksRef.current = [];
+                    
+                    mediaRecorder.ondataavailable = (e) => {
+                        chunksRef.current.push(e.data);
+                    };
+                    
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+                        const url = URL.createObjectURL(blob);
+                        setAudioUrl(url);
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+                    
+                    mediaRecorder.start();
+                    setRecording(true);
+                } catch (err) {
+                    alert('Microphone access denied');
+                }
+            };
+            
+            const stopRecording = () => {
+                if (mediaRecorderRef.current) {
+                    mediaRecorderRef.current.stop();
+                    setRecording(false);
+                }
+            };
+            
+            const handleSave = async () => {
+                if (audioUrl) {
+                    const response = await fetch(audioUrl);
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        onSave(e.target.result);
+                        onClose();
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            };
+            
+            return (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+                        <h2 className="text-2xl font-bold mb-6 text-center dark:text-white">Record Voice Memo</h2>
+                        
+                        <div className="flex justify-center mb-6">
+                            <div className={`w-24 h-24 rounded-full flex items-center justify-center shadow-inner ${recording ? 'bg-red-500 animate-pulse shadow-red-500/50' : 'bg-gray-100 dark:bg-slate-700'}`}>
+                                <i className={`fas fa-microphone text-3xl ${recording ? 'text-white' : 'text-gray-600'}`}></i>
+                            </div>
+                        </div>
+                        
+                        {audioUrl && (
+                            <audio controls src={audioUrl} className="w-full mb-6"></audio>
+                        )}
+                        
+                        <div className="flex gap-3">
+                            {!recording ? (
+                                <button
+                                    onClick={startRecording}
+                                    className="flex-1 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
+                                >
+                                    <i className="fas fa-circle"></i> Start Recording
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={stopRecording}
+                                    className="flex-1 py-3 bg-gray-600 text-white rounded-xl font-semibold hover:bg-gray-700 shadow-md transition-all"
+                                >
+                                    <i className="fas fa-stop"></i> Stop
+                                </button>
+                            )}
+                            <button
+                                onClick={onClose}
+                                className="flex-1 py-3 bg-gray-200 dark:bg-slate-700 rounded-xl font-semibold hover:bg-gray-300 dark:hover:bg-slate-600 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            {audioUrl && (
+                                <button
+                                    onClick={handleSave}
+                                    className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
+                                >
+                                    Save
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============ YOUTUBE HELPER ============
+        const getYouTubeEmbedUrl = (url) => {
+            if (!url) return null;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+        };
+
+        // ============ MAIN DIARY APP ============
+        const DiaryApp = () => {
+            const [cloudStatus, setCloudStatus] = useState('checking'); // 'checking', 'needs_login', 'connected', 'offline'
+            const [user, setUser] = useState(null);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [isSignUp, setIsSignUp] = useState(false);
+            const [authLoading, setAuthLoading] = useState(false);
+
+            const [currentRoute, setCurrentRoute] = useState('dashboard');
+            const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+            const [entries, setEntries] = useState(storage.get('diaryEntries', [{ id: 1, title: 'Welcome', content: 'Welcome to Uday\'s Master Diary Pro! This app features: mood tracking, voice memos, doodles, location tagging, markdown support, dark mode, and more.', date: new Date().toISOString(), mood: 'happy', weather: 'sunny', isFavorite: false, color: 'blue', location: 'Hyderabad, Telangana, India', tags: [], images: [], audioMemo: null, backgroundImage: null, youtubeUrl: null }]));
+            const [currentEntry, setCurrentEntry] = useState(null);
+            const [searchQuery, setSearchQuery] = useState('');
+            const [sortBy, setSortBy] = useState('newest');
+            const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+            const [viewMode, setViewMode] = useState('timeline');
+            const [darkMode, setDarkMode] = useState(storage.get('darkMode', false));
+            const [showDrawing, setShowDrawing] = useState(false);
+            const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+            const [toastMessage, setToastMessage] = useState('');
+            const [deleteModal, setDeleteModal] = useState({ isOpen: false, entryId: null });
+            const [trash, setTrash] = useState(storage.get('diaryTrash', []));
+            const [textSize, setTextSize] = useState(storage.get('textSize', 'normal'));
+            const [showZenMode, setShowZenMode] = useState(false);
+            const [dayStreak, setDayStreak] = useState(storage.get('dayStreak', 0));
+            const [focusMode, setFocusMode] = useState(false);
+            
+            const vantaRef = useRef(null);
+            
+            useEffect(() => {
+                let vantaEffect;
+                if (window.VANTA) {
+                    vantaEffect = window.VANTA.BIRDS({
+                        el: vantaRef.current,
+                        mouseControls: true,
+                        touchControls: true,
+                        gyroControls: false,
+                        minHeight: 200.00,
+                        minWidth: 200.00,
+                        scale: 1.00,
+                        scaleMobile: 1.00,
+                        backgroundColor: 0x7192f,
+                        backgroundAlpha: 1,
+                        color1: 0xff0000,
+                        color2: 0xd1ff,
+                        colorMode: 'varianceGradient',
+                        quantity: 5,
+                        birdSize: 1,
+                        wingSpan: 30,
+                        speedLimit: 5,
+                        separation: 20,
+                        alignment: 20,
+                        cohesion: 20
+                    });
+                }
+                return () => {
+                    if (vantaEffect) vantaEffect.destroy();
+                };
+            }, []);
+            
+            // ============ FIREBASE AUTH & FIRESTORE SYNC ============
+            useEffect(() => {
+                let attempts = 0;
+                const checkFirebase = () => {
+                    if (window.firebaseUtils) {
+                        const { auth, onAuthStateChanged } = window.firebaseUtils;
+                        onAuthStateChanged(auth, (u) => {
+                            setUser(u);
+                            setCloudStatus(u ? 'connected' : 'needs_login');
+                        });
+                    } else {
+                        attempts++;
+                        if (attempts > 20) {
+                            console.warn('Firebase initialization timeout. Running offline.');
+                            setCloudStatus('offline');
+                        } else {
+                            setTimeout(checkFirebase, 100);
+                        }
+                    }
+                };
+                checkFirebase();
+            }, []);
+
+            useEffect(() => {
+                if (cloudStatus !== 'connected' || !user || !window.firebaseUtils) return;
+                const { db, collection, onSnapshot } = window.firebaseUtils;
+                
+                const entriesUnsub = onSnapshot(collection(db, `users/${user.uid}/entries`), (snap) => {
+                    const data = [];
+                    snap.forEach(d => data.push(d.data()));
+                    setEntries(data);
+                    storage.set('diaryEntries', data);
+                });
+
+                const trashUnsub = onSnapshot(collection(db, `users/${user.uid}/trash`), (snap) => {
+                    const data = [];
+                    snap.forEach(d => data.push(d.data()));
+                    setTrash(data);
+                    storage.set('diaryTrash', data);
+                });
+
+                return () => { entriesUnsub(); trashUnsub(); };
+            }, [user, cloudStatus]);
+
+            const showToast = (message) => {
+                setToastMessage(message);
+                setTimeout(() => setToastMessage(''), 3000);
+            };
+            
+            useEffect(() => {
+                if (darkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+                storage.set('darkMode', darkMode);
+            }, [darkMode]);
+            
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    setCurrentTime(new Date().toLocaleTimeString());
+                }, 1000);
+                return () => clearInterval(timer);
+            }, []);
+            
+            const handleEmailAuth = async (e) => {
+                e.preventDefault();
+                if (!email || !password) return showToast("Required fields missing");
+                
+                setAuthLoading(true);
+                try {
+                    const { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = window.firebaseUtils;
+                    if (isSignUp) {
+                        await createUserWithEmailAndPassword(auth, email, password);
+                        showToast("Account created successfully!");
+                    } else {
+                        await signInWithEmailAndPassword(auth, email, password);
+                        showToast("Signed in successfully!");
+                    }
+                } catch(err) {
+                    showToast(err.message.replace('Firebase: ', ''));
+                } finally {
+                    setAuthLoading(false);
+                }
+            };
+            
+            const saveEntry = async (entry) => {
+                const updated = entries.map(e => e.id === entry.id ? entry : e);
+                if (!entries.find(e => e.id === entry.id)) {
+                    updated.push(entry);
+                }
+                setEntries(updated);
+                storage.set('diaryEntries', updated);
+
+                if (cloudStatus === 'connected' && user && window.firebaseUtils) {
+                    try {
+                        const { db, doc, setDoc } = window.firebaseUtils;
+                        await setDoc(doc(db, `users/${user.uid}/entries`, entry.id.toString()), entry);
+                    } catch(e) { console.error("Cloud save failed", e); }
+                }
+            };
+            
+            const deleteEntry = async (entryId) => {
+                const entryToDelete = entries.find(e => e.id === entryId);
+                if (entryToDelete) {
+                    const newEntries = entries.filter(e => e.id !== entryId);
+                    setEntries(newEntries);
+                    storage.set('diaryEntries', newEntries);
+                    
+                    const trashedItem = { ...entryToDelete, deletedAt: new Date().toISOString() };
+                    const newTrash = [...trash, trashedItem];
+                    setTrash(newTrash);
+                    storage.set('diaryTrash', newTrash);
+                    
+                    if (cloudStatus === 'connected' && user && window.firebaseUtils) {
+                        try {
+                            const { db, doc, setDoc, deleteDoc } = window.firebaseUtils;
+                            await setDoc(doc(db, `users/${user.uid}/trash`, entryId.toString()), trashedItem);
+                            await deleteDoc(doc(db, `users/${user.uid}/entries`, entryId.toString()));
+                        } catch(e) { console.error(e); }
+                    }
+                    showToast('Entry moved to trash');
+                }
+            };
+            
+            const restoreEntry = async (entryId) => {
+                const entryToRestore = trash.find(e => e.id === entryId);
+                if (entryToRestore) {
+                    const { deletedAt, ...entry } = entryToRestore;
+                    setEntries([...entries, entry]);
+                    storage.set('diaryEntries', [...entries, entry]);
+                    
+                    const newTrash = trash.filter(e => e.id !== entryId);
+                    setTrash(newTrash);
+                    storage.set('diaryTrash', newTrash);
+                    
+                    if (cloudStatus === 'connected' && user && window.firebaseUtils) {
+                        try {
+                            const { db, doc, setDoc, deleteDoc } = window.firebaseUtils;
+                            await setDoc(doc(db, `users/${user.uid}/entries`, entryId.toString()), entry);
+                            await deleteDoc(doc(db, `users/${user.uid}/trash`, entryId.toString()));
+                        } catch(e) { console.error(e); }
+                    }
+                    showToast('Entry restored');
+                }
+            };
+            
+            const permanentlyDeleteEntry = async (entryId) => {
+                const newTrash = trash.filter(e => e.id !== entryId);
+                setTrash(newTrash);
+                storage.set('diaryTrash', newTrash);
+                if (cloudStatus === 'connected' && user && window.firebaseUtils) {
+                    try {
+                        const { db, doc, deleteDoc } = window.firebaseUtils;
+                        await deleteDoc(doc(db, `users/${user.uid}/trash`, entryId.toString()));
+                    } catch(e) { console.error(e); }
+                }
+                showToast('Entry permanently deleted');
+            };
+            
+            const emptyTrash = async () => {
+                setTrash([]);
+                storage.set('diaryTrash', []);
+                if (cloudStatus === 'connected' && user && window.firebaseUtils) {
+                    try {
+                        const { db, doc, deleteDoc } = window.firebaseUtils;
+                        for (const item of trash) {
+                            await deleteDoc(doc(db, `users/${user.uid}/trash`, item.id.toString()));
+                        }
+                    } catch(e) { console.error(e); }
+                }
+                showToast('Trash emptied');
+            };
+            
+            const duplicateEntry = (entryId) => {
+                const entryToDuplicate = entries.find(e => e.id === entryId);
+                if (entryToDuplicate) {
+                    const newEntry = { ...entryToDuplicate, id: Date.now(), date: new Date().toISOString() };
+                    setEntries([...entries, newEntry]);
+                    storage.set('diaryEntries', [...entries, newEntry]);
+                    showToast('Entry duplicated');
+                }
+            };
+            
+            const exportEntries = () => {
+                const json = JSON.stringify(entries, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `diary-backup-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('Diary exported successfully');
+            };
+            
+            const importEntries = () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'application/json';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (evt) => {
+                            try {
+                                const imported = JSON.parse(evt.target.result);
+                                if (Array.isArray(imported)) {
+                                    const merged = [...entries, ...imported.filter(e => !entries.find(ex => ex.id === e.id))];
+                                    setEntries(merged);
+                                    storage.set('diaryEntries', merged);
+                                    showToast(`Imported ${imported.length} entries`);
+                                }
+                            } catch (err) {
+                                alert('Invalid backup file format');
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                };
+                input.click();
+            };
+            
+            const filteredAndSortedEntries = entries
+                .filter(e => {
+                    const query = searchQuery.toLowerCase();
+                    return e.title.toLowerCase().includes(query) || 
+                           e.content.toLowerCase().includes(query) || 
+                           (e.tags && e.tags.some(t => t.toLowerCase().includes(query)));
+                })
+                .filter(e => !showFavoritesOnly || e.isFavorite)
+                .sort((a, b) => {
+                    switch(sortBy) {
+                        case 'oldest': return new Date(a.date) - new Date(b.date);
+                        case 'longest': return (b.content || '').length - (a.content || '').length;
+                        case 'shortest': return (a.content || '').length - (b.content || '').length;
+                        default: return new Date(b.date) - new Date(a.date);
+                    }
+                });
+            
+            // AUTHENTICATION SPLASH SCREENS
+            if (cloudStatus === 'checking') {
+                return (
+                    <div className={`min-h-screen ${darkMode ? 'dark bg-slate-900' : 'bg-gray-50'} flex flex-col items-center justify-center p-4 transition-colors`}>
+                        <i className="fas fa-circle-notch fa-spin text-5xl text-blue-500 mb-6"></i>
+                        <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Connecting to Cloud...</h2>
+                    </div>
+                );
+            }
+
+            if (cloudStatus === 'needs_login') {
+                return (
+                    <div className={`min-h-screen ${darkMode ? 'dark bg-slate-900' : 'bg-gray-50'} flex flex-col items-center justify-center p-4 transition-colors`}>
+                        <div className={`backdrop-blur-xl border rounded-3xl shadow-2xl p-8 max-w-md w-full ${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white/40 text-gray-900'}`}>
+                            <div className="flex justify-center mb-6"><i className="fas fa-cloud text-5xl text-blue-500"></i></div>
+                            <h2 className="text-3xl font-bold mb-2 text-center">Master Diary Pro</h2>
+                            <p className="opacity-75 mb-8 text-center text-sm">{isSignUp ? "Create an account to sync your memories." : "Sign in to access your synced memories."}</p>
+                            
+                            <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
+                                <input type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className={`w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-100 border-gray-200'} border`} required />
+                                <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className={`w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-100 border-gray-200'} border`} required minLength="6" />
+                                <button type="submit" disabled={authLoading} className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-bold text-lg transition flex justify-center items-center shadow-lg">
+                                    {authLoading ? <i className="fas fa-spinner fa-spin"></i> : (isSignUp ? "Sign Up" : "Sign In")}
+                                </button>
+                            </form>
+                            
+                            <div className="text-center mb-6">
+                                <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-blue-500 hover:text-blue-400 font-medium text-sm">
+                                    {isSignUp ? "Already have an account? Log In instead" : "Need an account? Create one here"}
+                                </button>
+                            </div>
+                            
+                            <button onClick={() => setCloudStatus('offline')} className={`w-full py-3 mt-2 font-medium text-sm rounded-xl transition ${darkMode ? 'text-gray-400 hover:text-white border border-slate-700 hover:bg-slate-800' : 'text-gray-500 hover:text-gray-900 border border-gray-300 hover:bg-gray-100'}`}>
+                                Use Offline Mode (No Cloud Sync)
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`min-h-screen ${darkMode ? 'dark' : ''}`}>
+                    <div ref={vantaRef} className="fixed inset-0 z-[-1]"></div>
+
+                    {/* HEADER */}
+                    {currentRoute === 'dashboard' && (
+                        <>
+                        <header className={`${darkMode ? 'bg-slate-900/80 border-slate-700/50' : 'bg-white/80 border-white/40'} backdrop-blur-xl border-b sticky top-0 z-40 shadow-sm`}>
+                            <div className="max-w-7xl mx-auto px-4 py-4">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <i className="fas fa-book text-2xl text-blue-600"></i>
+                                        <h1 className={`text-3xl font-bold bg-gradient-to-r ${darkMode ? 'from-blue-400 to-purple-400' : 'from-blue-600 to-indigo-600'} bg-clip-text text-transparent`}>Uday's Diary</h1>
+                                    </div>
+                                    <div className="flex items-center gap-4 text-sm font-bold bg-black/5 dark:bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
+                                        <div className={`${darkMode ? 'text-yellow-400' : 'text-orange-500'}`}>
+                                            <i className="fas fa-fire"></i> {dayStreak}-Day Streak
+                                        </div>
+                                        <div className={darkMode ? 'text-blue-300' : 'text-blue-600'}>
+                                            <span id="clock">{currentTime}</span>
+                                        </div>
+                                        {cloudStatus === 'connected' ? (
+                                            <div className="text-green-500 dark:text-green-400 ml-2" title="Cloud Sync Active">
+                                                <i className="fas fa-cloud"></i>
+                                            </div>
+                                        ) : (
+                                            <div className="text-gray-500 ml-2" title="Offline Mode"><i className="fas fa-cloud-slash"></i></div>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center justify-between flex-wrap gap-4">
+                                    <div className="flex-1 max-w-md">
+                                        <input
+                                            type="text"
+                                            placeholder="Search entries..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className={`w-full px-5 py-2.5 rounded-xl ${darkMode ? 'bg-slate-800/80 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-900'} border shadow-inner focus:ring-2 focus:ring-blue-500 outline-none transition-all`}
+                                        />
+                                    </div>
+                                    
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setShowZenMode(true)}
+                                            className="px-3 py-2 bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white rounded-xl shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 text-sm"
+                                            title="Zen Mode"
+                                        >
+                                            <i className="fas fa-spa"></i>
+                                        </button>
+                                        <button
+                                            onClick={() => setTextSize(textSize === 'small' ? 'normal' : textSize === 'normal' ? 'large' : 'small')}
+                                            className={`px-3 py-2 ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'} rounded-xl shadow-sm transition-colors text-sm font-medium`}
+                                            title="Text Size"
+                                        >
+                                        <i className="fas fa-text-height"></i> {textSize}
+                                        </button>
+                                        <button
+                                            onClick={() => setDarkMode(!darkMode)}
+                                            className={`px-3 py-2 ${darkMode ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'} rounded-xl shadow-sm transition-colors text-sm font-medium`}
+                                            title="Dark Mode"
+                                        >
+                                            <i className={`fas fa-${darkMode ? 'sun' : 'moon'}`}></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={sortBy}
+                                            onChange={(e) => setSortBy(e.target.value)}
+                                            className={`px-4 py-2 rounded-xl text-sm font-medium ${darkMode ? 'bg-slate-800/80 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-900'} border outline-none`}
+                                        >
+                                            <option value="newest">Newest</option>
+                                            <option value="oldest">Oldest</option>
+                                            <option value="longest">Longest First</option>
+                                            <option value="shortest">Shortest First</option>
+                                        </select>
+                                        <button
+                                            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                                            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm ${showFavoritesOnly ? 'bg-yellow-500 text-white shadow-yellow-500/30' : darkMode ? 'bg-slate-800/80 text-white border border-slate-600' : 'bg-white text-gray-700 border border-gray-200'}`}
+                                        >
+                                            <i className="fas fa-star"></i> Favorites
+                                        </button>
+                                        <button
+                                            onClick={() => setViewMode(viewMode === 'timeline' ? 'grid' : 'timeline')}
+                                            className={`px-4 py-2 rounded-xl text-sm transition-colors shadow-sm ${darkMode ? 'bg-slate-800/80 text-white border border-slate-600' : 'bg-white text-gray-700 border border-gray-200'}`}
+                                        >
+                                            <i className={`fas fa-${viewMode === 'timeline' ? 'th' : 'list'}`}></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setCurrentRoute('insights')}
+                                            className="px-4 py-2 bg-teal-500/10 text-teal-600 dark:text-teal-400 rounded-xl hover:bg-teal-500/20 transition-colors text-sm font-semibold"
+                                        >
+                                            <i className="fas fa-chart-bar"></i> Insights
+                                        </button>
+                                        <button
+                                            onClick={() => setCurrentRoute('trash')}
+                                            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${trash.length > 0 ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20' : 'bg-gray-200/50 text-gray-400 cursor-not-allowed'}`}
+                                            disabled={trash.length === 0}
+                                        >
+                                            <i className="fas fa-trash"></i> Trash ({trash.length})
+                                        </button>
+                                        <button
+                                            onClick={exportEntries}
+                                            className="px-3 py-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-500/20 transition-colors text-sm font-semibold"
+                                        >
+                                            <i className="fas fa-download"></i> Export
+                                        </button>
+                                        <button
+                                            onClick={importEntries}
+                                            className="px-3 py-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-500/20 transition-colors text-sm font-semibold"
+                                        >
+                                            <i className="fas fa-upload"></i> Import
+                                        </button>
+                                        {user && (
+                                            <button
+                                                onClick={() => {
+                                                    if (window.firebaseUtils && window.firebaseUtils.auth) window.firebaseUtils.signOut(window.firebaseUtils.auth);
+                                                    else setCloudStatus('needs_login');
+                                                }}
+                                                className="px-3 py-2 bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-500/20 transition-colors text-sm font-semibold"
+                                                title="Sign Out"
+                                            >
+                                                <i className="fas fa-sign-out-alt"></i>
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => {
+                                                setCurrentEntry({ id: Date.now(), title: '', content: '', date: new Date().toISOString(), mood: null, weather: null, isFavorite: false, color: 'blue', location: '', tags: [], images: [], audioMemo: null, backgroundImage: null, youtubeUrl: null });
+                                                setCurrentRoute('editor');
+                                            }}
+                                            className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 text-sm font-bold"
+                                        >
+                                            <i className="fas fa-plus"></i> New Entry
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </header>
+                        <div className={`${darkMode ? 'bg-slate-900/60 border-slate-700/50 text-gray-300' : 'bg-white/60 border-white/50 text-gray-600'} backdrop-blur-md border-b px-4 py-2 text-xs font-medium tracking-wide`}>
+                            <div className="max-w-7xl mx-auto flex gap-6">
+                                <span><i className="fas fa-file-alt"></i> {entries.length} entries</span>
+                                <span><i className="fas fa-star"></i> {entries.filter(e => e.isFavorite).length} favorited</span>
+                                <span><i className="fas fa-font"></i> {entries.reduce((sum, e) => sum + (e.content ? e.content.trim().split(/\s+/).filter(w => w.length > 0).length : 0), 0)} total words</span>
+                                <span><i className="fas fa-image"></i> {entries.filter(e => e.images && e.images.length > 0).length} w/ images</span>
+                            </div>
+                        </div>
+                        </>
+                    )}
+                    
+                    {/* "ON THIS DAY" FLASHBACKS */}
+                    {currentRoute === 'dashboard' && (
+                        <div className="max-w-7xl mx-auto px-4 py-4">
+                            {(() => {
+                                const today = new Date();
+                                const onThisDay = entries.filter(e => {
+                                    const eDate = new Date(e.date);
+                                    return eDate.getMonth() === today.getMonth() && eDate.getDate() === today.getDate() && eDate.getFullYear() !== today.getFullYear();
+                                });
+                                
+                                if (onThisDay.length > 0) {
+                                    return (
+                                        <div className={`${darkMode ? 'bg-slate-800/80 border-blue-400' : 'bg-blue-50/90 border-blue-500'} backdrop-blur-md border-l-4 p-5 rounded-2xl shadow-sm mb-6`}>
+                                            <h3 className={`font-bold mb-3 ${darkMode ? 'text-blue-300' : 'text-blue-900'}`}>
+                                                <i className="fas fa-history mr-2"></i> On This Day...
+                                            </h3>
+                                            <div className="space-y-2">
+                                                {onThisDay.map(e => (
+                                                    <div key={e.id} className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                        <strong>{new Date(e.date).getFullYear()}:</strong> {e.title}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+                        </div>
+                    )}
+                    
+                    {/* ENTRIES DISPLAY */}
+                    {currentRoute === 'dashboard' && (
+                        <div className={`max-w-7xl mx-auto px-4 py-8`}>
+                            {filteredAndSortedEntries.length === 0 ? (
+                                <div className={`text-center py-16 rounded-3xl backdrop-blur-xl border ${darkMode ? 'bg-slate-900/50 border-slate-700/50' : 'bg-white/50 border-white/50'} shadow-xl`}>
+                                    <i className="fas fa-inbox text-4xl text-gray-400 mb-4"></i>
+                                    <p className={`text-xl ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No entries found</p>
+                                </div>
+                            ) : (
+                                <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'flex flex-col gap-5'}>
+                                    {filteredAndSortedEntries.map(entry => (
+                                        <div
+                                            key={entry.id}
+                                            onClick={() => {
+                                                setCurrentEntry(entry);
+                                                setCurrentRoute('reader');
+                                            }}
+                                            className={`${darkMode ? 'bg-slate-800/80 hover:bg-slate-700/90 border-slate-700/50' : 'bg-white/80 hover:bg-white border-white/60'} backdrop-blur-xl border rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 p-5 cursor-pointer flex flex-col justify-between card-color-${entry.color}`}
+                                            style={entry.backgroundImage ? { backgroundImage: `url(${entry.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+                                        >
+                                            {entry.backgroundImage && (
+                                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-2xl"></div>
+                                            )}
+                                            <div className={`relative h-full flex flex-col ${entry.backgroundImage ? 'text-white' : darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <p className={`text-xs font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                            {new Date(entry.date).toLocaleDateString()}
+                                                        </p>
+                                                        <h3 className="text-xl font-bold line-clamp-1 mt-1">{entry.title || 'Untitled'}</h3>
+                                                    </div>
+                                                    <div className="flex gap-2 items-center bg-black/5 dark:bg-white/5 rounded-full px-2 py-1 backdrop-blur-sm">
+                                                        <span className="text-lg">
+                                                            {entry.mood === 'happy' && '😊'}
+                                                            {entry.mood === 'neutral' && '😐'}
+                                                            {entry.mood === 'sad' && '😢'}
+                                                        </span>
+                                                        <span className="text-lg">
+                                                            {entry.weather === 'sunny' && '☀️'}
+                                                            {entry.weather === 'cloudy' && '☁️'}
+                                                            {entry.weather === 'rainy' && '🌧️'}
+                                                            {entry.weather === 'snowy' && '❄️'}
+                                                        </span>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const updated = { ...entry, isFavorite: !entry.isFavorite };
+                                                                saveEntry(updated);
+                                                            }}
+                                                            className="text-lg hover:scale-110 transition-transform"
+                                                        >
+                                                            {entry.isFavorite ? '⭐' : '☆'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <p className={`text-sm line-clamp-3 mb-4 flex-grow ${darkMode && !entry.backgroundImage ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                    {entry.content}
+                                                </p>
+                                                
+                                                {entry.images && entry.images.length > 0 && (
+                                                    <img src={entry.images[0]} alt="preview" className="w-full h-32 object-cover rounded-xl mb-4 shadow-sm" />
+                                                )}
+                                                
+                                                <div className="flex justify-between items-center">
+                                                    <div className="flex gap-3">
+                                                        {entry.location && (
+                                                            <span className={`text-xs ${darkMode && !entry.backgroundImage ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                                <i className="fas fa-map-marker-alt"></i> {entry.location}
+                                                            </span>
+                                                        )}
+                                                        {entry.youtubeUrl && (
+                                                            <span className={`text-xs ${darkMode && !entry.backgroundImage ? 'text-red-400' : 'text-red-600'} font-medium`}>
+                                                                <i className="fab fa-youtube"></i> Video
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {entry.tags && entry.tags.length > 0 && (
+                                                        <div className="flex gap-1.5 flex-wrap justify-end ml-2">
+                                                            {entry.tags.slice(0, 2).map((tag, idx) => (
+                                                                <span key={idx} className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-md font-medium">
+                                                                    #{tag}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    
+                    {/* EDITOR VIEW */}
+                    {currentRoute === 'editor' && currentEntry && (
+                        <div className="min-h-screen">
+                            <div className={`${darkMode ? 'bg-slate-900/80 border-slate-700/50' : 'bg-white/80 border-white/50'} backdrop-blur-xl border-b p-4 sticky top-0 z-40 shadow-sm`}>
+                                <div className="flex justify-between items-center max-w-4xl mx-auto">
+                                    <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Edit Entry</h2>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => {
+                                                saveEntry(currentEntry);
+                                                setCurrentRoute('dashboard');
+                                                setCurrentEntry(null);
+                                                showToast('Entry saved');
+                                            }}
+                                            className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-md hover:shadow-lg transition-transform hover:-translate-y-0.5 font-bold"
+                                        >
+                                            <i className="fas fa-save"></i> Save
+                                        </button>
+                                        <button
+                                            onClick={() => setFocusMode(!focusMode)}
+                                            className="px-4 py-2 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl hover:bg-purple-500/20 transition-colors font-semibold"
+                                        >
+                                            <i className="fas fa-circle"></i> {focusMode ? 'Exit' : 'Focus'}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setCurrentRoute('dashboard');
+                                                setCurrentEntry(null);
+                                            }}
+                                            className={`px-4 py-2 rounded-xl transition-colors font-semibold ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
+                                        >
+                                            Done
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className={`max-w-4xl mx-auto p-6 mt-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 mb-12`}>
+                                {/* BACKGROUND IMAGE */}
+                                {currentEntry.backgroundImage && (
+                                    <div className="relative mb-6 h-48 rounded-2xl overflow-hidden shadow-inner">
+                                        <img src={currentEntry.backgroundImage} alt="background" className="w-full h-full object-cover" />
+                                        <button
+                                            onClick={() => setCurrentEntry({ ...currentEntry, backgroundImage: null })}
+                                            className="absolute top-3 right-3 bg-red-500/80 hover:bg-red-600 text-white px-3 py-2 rounded-lg backdrop-blur-sm transition-colors"
+                                        >
+                                            <i className="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                )}
+                                
+                                {/* METADATA ROW */}
+                                {!focusMode && (
+                                    <div className="flex justify-between items-center gap-4 flex-wrap mb-6">
+                                        <div className="flex gap-3">
+                                            <select
+                                                value={currentEntry.mood || ''}
+                                                onChange={(e) => setCurrentEntry({ ...currentEntry, mood: e.target.value })}
+                                                className={`px-4 py-2 rounded-xl font-medium outline-none shadow-sm cursor-pointer transition-colors ${darkMode ? 'bg-slate-800/80 text-white border border-slate-600/50' : 'bg-white text-gray-700 border border-gray-200'}`}
+                                            >
+                                                <option value="">Mood</option>
+                                                <option value="happy">😊 Happy</option>
+                                                <option value="neutral">😐 Neutral</option>
+                                                <option value="sad">😢 Sad</option>
+                                            </select>
+                                            
+                                            <select
+                                                value={currentEntry.weather || ''}
+                                                onChange={(e) => setCurrentEntry({ ...currentEntry, weather: e.target.value })}
+                                                className={`px-4 py-2 rounded-xl font-medium outline-none shadow-sm cursor-pointer transition-colors ${darkMode ? 'bg-slate-800/80 text-white border border-slate-600/50' : 'bg-white text-gray-700 border border-gray-200'}`}
+                                            >
+                                                <option value="">Weather</option>
+                                                <option value="sunny">☀️ Sunny</option>
+                                                <option value="cloudy">☁️ Cloudy</option>
+                                                <option value="rainy">🌧️ Rainy</option>
+                                                <option value="snowy">❄️ Snowy</option>
+                                            </select>
+                                            
+                                            <button
+                                                onClick={() => setCurrentEntry({ ...currentEntry, isFavorite: !currentEntry.isFavorite })}
+                                                className={`px-4 py-2 rounded-xl font-medium shadow-sm transition-all ${currentEntry.isFavorite ? 'bg-yellow-500 text-white shadow-yellow-500/40 scale-105' : darkMode ? 'bg-slate-800/80 text-white border border-slate-600/50 hover:bg-slate-700' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
+                                            >
+                                                {currentEntry.isFavorite ? '⭐ Favorited' : '☆ Favorite'}
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="flex gap-2">
+                                            {['red', 'blue', 'green', 'purple', 'yellow', 'pink'].map(color => (
+                                                <button
+                                                    key={color}
+                                                    onClick={() => setCurrentEntry({ ...currentEntry, color })}
+                                                    className={`w-8 h-8 rounded-full shadow-sm transform hover:scale-110 transition-all ${color === 'red' ? 'bg-red-500' : color === 'blue' ? 'bg-blue-500' : color === 'green' ? 'bg-green-500' : color === 'purple' ? 'bg-purple-500' : color === 'yellow' ? 'bg-yellow-500' : 'bg-pink-500'} ${currentEntry.color === color ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : ''}`}
+                                                ></button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* TITLE & CONTENT */}
+                                <input
+                                    type="text"
+                                    value={currentEntry.title}
+                                    onChange={(e) => setCurrentEntry({ ...currentEntry, title: e.target.value })}
+                                    placeholder="Entry Title"
+                                    className={`w-full text-4xl font-bold mb-4 p-2 bg-transparent outline-none transition-colors border-b-2 border-transparent focus:border-blue-500/50 ${darkMode ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`}
+                                />
+                                
+                                <textarea
+                                    value={currentEntry.content}
+                                    onChange={(e) => setCurrentEntry({ ...currentEntry, content: e.target.value })}
+                                    placeholder="Start writing..."
+                                    className={`w-full h-80 p-2 bg-transparent outline-none resize-none text-lg leading-relaxed ${darkMode ? 'text-gray-200 placeholder-gray-600' : 'text-gray-800 placeholder-gray-400'}`}
+                                    style={{ fontSize: textSize === 'small' ? '14px' : textSize === 'large' ? '20px' : '16px' }}
+                                />
+                                
+                                {/* TOOLBAR */}
+                                {!focusMode && (
+                                    <div className={`mt-6 pt-6 border-t ${darkMode ? 'border-slate-700/50' : 'border-gray-200/50'} flex flex-wrap gap-3`}>
+                                        <button
+                                            onClick={() => {
+                                                const textarea = document.querySelector('textarea');
+                                            if (!textarea) return;
+                                            const start = textarea.selectionStart || 0;
+                                            const end = textarea.selectionEnd || 0;
+                                            const text = currentEntry.content || '';
+                                                const selected = text.substring(start, end);
+                                                const before = text.substring(0, start);
+                                                const after = text.substring(end);
+                                            setCurrentEntry(prev => ({ ...prev, content: before + '**' + selected + '**' + after }));
+                                            }}
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                        >
+                                            <i className="fas fa-bold text-gray-500"></i> Bold
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => {
+                                                const textarea = document.querySelector('textarea');
+                                            if (!textarea) return;
+                                            const start = textarea.selectionStart || 0;
+                                            const end = textarea.selectionEnd || 0;
+                                            const text = currentEntry.content || '';
+                                                const selected = text.substring(start, end);
+                                                const before = text.substring(0, start);
+                                                const after = text.substring(end);
+                                            setCurrentEntry(prev => ({ ...prev, content: before + '_' + selected + '_' + after }));
+                                            }}
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                        >
+                                            <i className="fas fa-italic text-gray-500"></i> Italic
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => {
+                                                const textarea = document.querySelector('textarea');
+                                            if (!textarea) return;
+                                            const start = textarea.selectionStart || 0;
+                                            const end = textarea.selectionEnd || 0;
+                                            const text = currentEntry.content || '';
+                                                const before = text.substring(0, start);
+                                                const after = text.substring(end);
+                                            setCurrentEntry(prev => ({ ...prev, content: before + '\n- ' + after }));
+                                            }}
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                        >
+                                            <i className="fas fa-list text-gray-500"></i> List
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => {
+                                                const tags = (currentEntry.content || '').match(/\b[A-Za-z]{5,}\b/g) || [];
+                                                const uniqueTags = [...new Set(tags)].slice(0, 3);
+                                                setCurrentEntry({ ...currentEntry, tags: uniqueTags });
+                                                showToast('Tags auto-generated');
+                                            }}
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                        >
+                                            <i className="fas fa-wand-magic-sparkles text-purple-500"></i> Auto-Tag
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => {
+                                                navigator.geolocation.getCurrentPosition(
+                                                    (pos) => {
+                                                        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`)
+                                                            .then(r => r.json())
+                                                            .then(data => {
+                                                                const location = data.address.city || data.address.town || data.address.state || 'Unknown Location';
+                                                        setCurrentEntry(prev => ({ ...prev, location }));
+                                                                showToast('Location added');
+                                                            })
+                                                            .catch(() => {
+                                                        setCurrentEntry(prev => ({ ...prev, location: 'Hyderabad, Telangana, India' }));
+                                                                showToast('Using default location');
+                                                            });
+                                                    },
+                                                    () => {
+                                                setCurrentEntry(prev => ({ ...prev, location: 'Hyderabad, Telangana, India' }));
+                                                        showToast('Location access denied');
+                                                    }
+                                                );
+                                            }}
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                        >
+                                            <i className="fas fa-location-dot text-blue-500"></i> Location
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => {
+                                                const url = prompt('Enter image URL:');
+                                                if (url) {
+                                                setCurrentEntry(prev => ({ ...prev, backgroundImage: url }));
+                                                    showToast('Background image set');
+                                                }
+                                            }}
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                        >
+                                            <i className="fas fa-image text-indigo-500"></i> Background
+                                        </button>
+                                        
+                                        <label className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium cursor-pointer transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
+                                            <i className="fas fa-camera text-green-500"></i> Photo
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    const file = e.target.files[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onload = (evt) => {
+                                                    setCurrentEntry(prev => ({
+                                                        ...prev,
+                                                        images: [...(prev.images || []), evt.target.result]
+                                                    }));
+                                                            showToast('Image added');
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                                className="hidden"
+                                            />
+                                        </label>
+                                        
+                                        <button
+                                            onClick={() => {
+                                                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                                                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                                                    const recognition = new SpeechRecognition();
+                                                    recognition.start();
+                                                    recognition.onresult = (e) => {
+                                                        const transcript = Array.from(e.results)
+                                                            .map(result => result[0].transcript)
+                                                            .join('');
+                                                setCurrentEntry(prev => ({ ...prev, content: prev.content + (prev.content ? ' ' : '') + transcript }));
+                                                        showToast('Dictation added');
+                                                    };
+                                                } else {
+                                                    alert('Speech recognition not supported in this browser.');
+                                                }
+                                            }}
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                        >
+                                            <i className="fas fa-microphone text-orange-500"></i> Dictate
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => setShowVoiceRecorder(true)}
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                        >
+                                            <i className="fas fa-record-vinyl text-red-500"></i> Voice Memo
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => setShowDrawing(true)}
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                        >
+                                            <i className="fas fa-paintbrush text-pink-500"></i> Doodle
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => {
+                                                const url = prompt('Enter YouTube Video URL:');
+                                                if (url) {
+                                                    const embedUrl = getYouTubeEmbedUrl(url);
+                                                    if (embedUrl) {
+                                                        setCurrentEntry(prev => ({ ...prev, youtubeUrl: url }));
+                                                        showToast('YouTube video added');
+                                                    } else {
+                                                        alert('Invalid YouTube URL');
+                                                    }
+                                                }
+                                            }}
+                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                        >
+                                            <i className="fab fa-youtube text-red-600"></i> YouTube
+                                        </button>
+                                    </div>
+                                )}
+                                
+                                {/* IMAGES GALLERY */}
+                                {currentEntry.images && currentEntry.images.length > 0 && (
+                                    <div className="mt-6 flex gap-4 flex-wrap">
+                                        {currentEntry.images.map((img, idx) => (
+                                            <div key={idx} className="relative group">
+                                                <img src={img} alt={`image-${idx}`} className="h-24 w-24 object-cover rounded-xl shadow-md" />
+                                                <button
+                                                    onClick={() => setCurrentEntry({
+                                                        ...currentEntry,
+                                                        images: currentEntry.images.filter((_, i) => i !== idx)
+                                                    })}
+                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md transform scale-0 group-hover:scale-100 transition-transform"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                
+                                {/* VOICE MEMO PLAYER */}
+                                {currentEntry.audioMemo && (
+                                    <div className={`mt-6 p-4 rounded-xl ${darkMode ? 'bg-slate-800/80' : 'bg-gray-100'}`}>
+                                        <audio controls src={currentEntry.audioMemo} className="w-full"></audio>
+                                        <button
+                                            onClick={() => setCurrentEntry({ ...currentEntry, audioMemo: null })}
+                                            className="mt-3 px-4 py-2 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/20 transition-colors"
+                                        >
+                                            Remove Audio
+                                        </button>
+                                    </div>
+                                )}
+                                
+                                {/* YOUTUBE PLAYER */}
+                                {currentEntry.youtubeUrl && (
+                                    <div className="mt-6 relative rounded-2xl overflow-hidden shadow-inner aspect-video bg-black">
+                                        <iframe
+                                            className="w-full h-full"
+                                            src={getYouTubeEmbedUrl(currentEntry.youtubeUrl)}
+                                            frameBorder="0"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                        ></iframe>
+                                        <button
+                                            onClick={() => setCurrentEntry({ ...currentEntry, youtubeUrl: null })}
+                                            className="absolute top-3 right-3 bg-red-500/80 hover:bg-red-600 text-white px-3 py-2 rounded-lg backdrop-blur-sm transition-colors shadow-lg"
+                                        >
+                                            <i className="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                )}
+                                
+                                {/* TAGS */}
+                                {currentEntry.tags && currentEntry.tags.length > 0 && (
+                                    <div className="mt-6 flex gap-2 flex-wrap">
+                                        {currentEntry.tags.map((tag, idx) => (
+                                            <div key={idx} className="bg-blue-500/20 text-blue-700 dark:text-blue-300 px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 font-medium">
+                                                #{tag}
+                                                <button onClick={() => setCurrentEntry({
+                                                    ...currentEntry,
+                                                    tags: currentEntry.tags.filter((_, i) => i !== idx)
+                                                })} className="hover:text-red-500 font-bold">×</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* READER VIEW */}
+                    {currentRoute === 'reader' && currentEntry && (
+                        <div
+                            className="min-h-screen bg-cover bg-center"
+                            style={currentEntry.backgroundImage ? { backgroundImage: `url(${currentEntry.backgroundImage})`, backgroundAttachment: 'fixed' } : {}}
+                        >
+                            {currentEntry.backgroundImage && (
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-md"></div>
+                            )}
+                            
+                            <div className="fixed top-6 right-6 z-40 flex gap-3 no-print flex-wrap justify-end">
+                                <button
+                                    onClick={() => window.print()}
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
+                                >
+                                    <i className="fas fa-print"></i> Print
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(`${currentEntry.title}\n${new Date(currentEntry.date).toLocaleDateString()}\n\n${currentEntry.content}`);
+                                        showToast('Copied to clipboard');
+                                    }}
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
+                                >
+                                    <i className="fas fa-copy"></i> Copy
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if ('speechSynthesis' in window) {
+                                            speechSynthesis.speak(new SpeechSynthesisUtterance(currentEntry.content));
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
+                                >
+                                    <i className="fas fa-volume-up"></i> Read Aloud
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setCurrentRoute('editor');
+                                    }}
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
+                                >
+                                    <i className="fas fa-edit"></i> Edit
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        duplicateEntry(currentEntry.id);
+                                        setCurrentRoute('dashboard');
+                                    }}
+                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-xl shadow-lg transition-all"
+                                >
+                                    <i className="fas fa-copy"></i> Duplicate
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setDeleteModal({ isOpen: true, entryId: currentEntry.id });
+                                    }}
+                                    className="px-4 py-2 bg-red-500/80 hover:bg-red-600/90 backdrop-blur-md text-white border border-red-500/50 rounded-xl shadow-lg transition-all"
+                                >
+                                    <i className="fas fa-trash"></i> Delete
+                                </button>
+                                <button
+                                    onClick={() => setCurrentRoute('dashboard')}
+                                    className="px-4 py-2 bg-gray-600/80 hover:bg-gray-700/90 backdrop-blur-md text-white border border-gray-500/50 rounded-xl shadow-lg transition-all"
+                                >
+                                    <i className="fas fa-arrow-left"></i> Back
+                                </button>
+                            </div>
+                            
+                            <div className={`relative max-w-3xl mx-auto p-10 pt-12 my-12 backdrop-blur-2xl rounded-3xl shadow-2xl border ${currentEntry.backgroundImage ? 'bg-black/40 border-white/20 text-white' : darkMode ? 'bg-slate-900/80 border-slate-700/50 text-gray-200' : 'bg-white/90 border-white text-gray-900'}`}>
+                                <div className="flex justify-between items-start mb-6">
+                                    <div>
+                                        <p className="text-sm font-medium opacity-75 mb-3 tracking-wide uppercase">
+                                            {new Date(currentEntry.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                        </p>
+                                        <h1 className="text-5xl font-bold mb-2">{currentEntry.title}</h1>
+                                    </div>
+                                    <div className="flex gap-4 text-3xl">
+                                        <span>
+                                            {currentEntry.mood === 'happy' && '😊'}
+                                            {currentEntry.mood === 'neutral' && '😐'}
+                                            {currentEntry.mood === 'sad' && '😢'}
+                                        </span>
+                                        <span>
+                                            {currentEntry.weather === 'sunny' && '☀️'}
+                                            {currentEntry.weather === 'cloudy' && '☁️'}
+                                            {currentEntry.weather === 'rainy' && '🌧️'}
+                                            {currentEntry.weather === 'snowy' && '❄️'}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                {currentEntry.location && (
+                                    <p className="text-sm opacity-75 mb-4">
+                                        <i className="fas fa-map-marker-alt"></i> {currentEntry.location}
+                                    </p>
+                                )}
+                                
+                                {currentEntry.images && currentEntry.images.length > 0 && (
+                                    <div className="flex overflow-x-auto gap-4 mb-8 pb-4 custom-scrollbar">
+                                        {currentEntry.images.map((img, idx) => (
+                                            <img key={idx} src={img} alt={`image-${idx}`} className="h-72 flex-shrink-0 rounded-2xl shadow-xl border border-white/10" />
+                                        ))}
+                                    </div>
+                                )}
+                                
+                                {currentEntry.audioMemo && (
+                                    <div className="mb-8 bg-black/10 dark:bg-white/5 rounded-2xl p-4 backdrop-blur-sm">
+                                        <audio controls src={currentEntry.audioMemo} className="w-full outline-none"></audio>
+                                    </div>
+                                )}
+                                
+                                {currentEntry.youtubeUrl && (
+                                    <div className="mb-8 rounded-2xl overflow-hidden shadow-xl aspect-video bg-black">
+                                        <iframe
+                                            className="w-full h-full"
+                                            src={getYouTubeEmbedUrl(currentEntry.youtubeUrl)}
+                                            frameBorder="0"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                        ></iframe>
+                                    </div>
+                                )}
+                                
+                                <div className="prose prose-lg mb-10 max-w-none leading-loose text-lg">
+                                    {(currentEntry.content || '').split('\n').map((line, idx) => {
+                                        const parsedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>');
+                                        if (line.startsWith('# ')) return <h2 key={idx} className="text-4xl font-bold mt-8 mb-6" dangerouslySetInnerHTML={{__html: parsedLine.substring(2)}} />;
+                                        if (line.startsWith('## ')) return <h3 key={idx} className="text-3xl font-bold mt-6 mb-4" dangerouslySetInnerHTML={{__html: parsedLine.substring(3)}} />;
+                                        if (line.startsWith('- ')) return <li key={idx} className="ml-4 list-disc" dangerouslySetInnerHTML={{__html: parsedLine.substring(2)}} />;
+                                        return <p key={idx} className="mb-5 whitespace-pre-wrap" dangerouslySetInnerHTML={{__html: parsedLine}} />;
+                                    })}
+                                </div>
+                                
+                                {currentEntry.tags && currentEntry.tags.length > 0 && (
+                                    <div className="flex gap-2 flex-wrap">
+                                        {currentEntry.tags.map((tag, idx) => (
+                                            <span key={idx} className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-4 py-1.5 rounded-xl text-sm font-medium shadow-sm">
+                                                #{tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* INSIGHTS VIEW */}
+                    {currentRoute === 'insights' && (
+                        <div className="min-h-screen p-8">
+                            <div className="max-w-6xl mx-auto">
+                                <button
+                                    onClick={() => setCurrentRoute('dashboard')}
+                                    className="mb-8 px-5 py-2.5 bg-gray-600/80 hover:bg-gray-700 backdrop-blur-md text-white rounded-xl shadow-md transition-all"
+                                >
+                                    <i className="fas fa-arrow-left"></i> Back
+                                </button>
+                                
+                                <h2 className={`text-4xl font-bold mb-10 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Your Insights</h2>
+                                
+                                {/* KPI CARDS */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+                                    <div className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform`}>
+                                        <p className={`text-sm opacity-75 mb-2`}>Total Entries</p>
+                                        <p className="text-3xl font-bold">{entries.length}</p>
+                                    </div>
+                                    <div className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform`}>
+                                        <p className={`text-sm opacity-75 mb-2`}>Current Streak</p>
+                                        <p className="text-3xl font-bold text-orange-500">{dayStreak}</p>
+                                    </div>
+                                    <div className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform`}>
+                                        <p className={`text-sm opacity-75 mb-2`}>Total Words</p>
+                                        <p className="text-3xl font-bold">{entries.reduce((sum, e) => sum + (e.content ? e.content.trim().split(/\s+/).filter(w => w.length > 0).length : 0), 0)}</p>
+                                    </div>
+                                    <div className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform`}>
+                                        <p className={`text-sm opacity-75 mb-2`}>Favorites</p>
+                                        <p className="text-3xl font-bold text-yellow-500">{entries.filter(e => e.isFavorite).length}</p>
+                                    </div>
+                                </div>
+                                
+                                {/* MOOD HEATMAP */}
+                                <div className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-8 shadow-xl`}>
+                                    <h3 className={`text-2xl font-bold mb-6 ${darkMode ? 'text-white' : ''}`}>30-Day Mood Heatmap</h3>
+                                    <div className="grid grid-cols-7 gap-3">
+                                        {[...Array(30)].map((_, i) => {
+                                            const date = new Date();
+                                            date.setDate(date.getDate() - 29 + i);
+                                            const entry = entries.find(e => {
+                                                const eDate = new Date(e.date);
+                                                return eDate.getDate() === date.getDate() && eDate.getMonth() === date.getMonth() && eDate.getFullYear() === date.getFullYear();
+                                            });
+                                            
+                                            let bgColor = 'bg-gray-200/50 text-gray-600 dark:bg-slate-700/50 dark:text-gray-400';
+                                            if (entry) {
+                                                bgColor = entry.mood === 'happy' ? 'bg-green-500 text-white shadow-lg shadow-green-500/40' : entry.mood === 'neutral' ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/40' : 'bg-blue-500 text-white shadow-lg shadow-blue-500/40';
+                                            }
+                                            
+                                            return (
+                                                <div key={i} className={`aspect-square rounded-xl ${bgColor} flex items-center justify-center text-sm font-bold transition-transform hover:scale-110 cursor-help` } title={date.toLocaleDateString()}>
+                                                    {date.getDate()}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* TRASH VIEW */}
+                    {currentRoute === 'trash' && (
+                        <div className="min-h-screen p-8">
+                            <div className="max-w-6xl mx-auto">
+                                <div className="flex justify-between items-center mb-6">
+                                    <div>
+                                        <h2 className={`text-4xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Trash</h2>
+                                        <p className={`text-sm opacity-75 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{trash.length} items</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {trash.length > 0 && (
+                                            <button
+                                                onClick={() => setDeleteModal({ isOpen: true, entryId: 'empty-trash' })}
+                                                className="px-5 py-2.5 bg-red-600/90 hover:bg-red-700 backdrop-blur-md text-white rounded-xl shadow-md transition-all font-semibold"
+                                            >
+                                                <i className="fas fa-trash"></i> Empty Trash
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => setCurrentRoute('dashboard')}
+                                            className="px-5 py-2.5 bg-gray-600/80 hover:bg-gray-700 backdrop-blur-md text-white rounded-xl shadow-md transition-all font-semibold"
+                                        >
+                                            <i className="fas fa-arrow-left"></i> Back
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    {trash.length === 0 ? (
+                                        <div className={`text-center py-16 rounded-3xl backdrop-blur-xl border ${darkMode ? 'bg-slate-900/50 border-slate-700/50 text-gray-400' : 'bg-white/50 border-white/50 text-gray-500'} shadow-xl`}>
+                                            <i className="fas fa-trash-can text-5xl opacity-40 mb-4"></i>
+                                            <p className="opacity-75">Trash is empty</p>
+                                        </div>
+                                    ) : (
+                                        trash.map(entry => (
+                                            <div key={entry.id} className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-gray-200' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4`}>
+                                                <div className="flex-1">
+                                                    <h3 className="font-bold text-lg">{entry.title || 'Untitled'}</h3>
+                                                    <p className="text-sm opacity-75">{new Date(entry.deletedAt).toLocaleDateString()}</p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => restoreEntry(entry.id)}
+                                                        className="px-4 py-2 bg-green-500/20 text-green-600 dark:text-green-400 hover:bg-green-500/30 rounded-xl font-medium transition-colors"
+                                                    >
+                                                        <i className="fas fa-redo"></i> Restore
+                                                    </button>
+                                                    <button
+                                                        onClick={() => permanentlyDeleteEntry(entry.id)}
+                                                        className="px-4 py-2 bg-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/30 rounded-xl font-medium transition-colors"
+                                                    >
+                                                        <i className="fas fa-trash-alt"></i> Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* ZEN MODE */}
+                    {showZenMode && (
+                        <ZenMode onClose={() => setShowZenMode(false)} />
+                    )}
+                    
+                    {/* MODALS & NOTIFICATIONS */}
+                    {toastMessage && <Toast message={toastMessage} />}
+                    
+                    <Modal
+                        isOpen={deleteModal.isOpen}
+                        title="Delete Entry?"
+                        message={deleteModal.entryId === 'empty-trash' ? 'This will permanently delete all trash entries.' : 'Move this entry to trash?'}
+                        onConfirm={() => {
+                            if (deleteModal.entryId === 'empty-trash') {
+                                emptyTrash();
+                            } else {
+                                deleteEntry(deleteModal.entryId);
+                                    setCurrentEntry(null);
+                                setCurrentRoute('dashboard');
+                            }
+                            setDeleteModal({ isOpen: false, entryId: null });
+                        }}
+                        onCancel={() => setDeleteModal({ isOpen: false, entryId: null })}
+                        confirmText="Delete"
+                        isDangerous
+                    />
+                    
+                    {showDrawing && (
+                        <DrawingCanvas
+                            onSave={(dataUrl) => {
+                                setCurrentEntry({
+                                    ...currentEntry,
+                                    images: [...(currentEntry.images || []), dataUrl]
+                                });
+                                showToast('Doodle added');
+                            }}
+                            onClose={() => setShowDrawing(false)}
+                        />
+                    )}
+                    
+                    {showVoiceRecorder && (
+                        <VoiceRecorder
+                            onSave={(audioData) => {
+                                setCurrentEntry({ ...currentEntry, audioMemo: audioData });
+                                showToast('Voice memo saved');
+                            }}
+                            onClose={() => setShowVoiceRecorder(false)}
+                        />
+                    )}
+                </div>
+            );
+        };
+        
+        // ============ RENDER APP ============
+        ReactDOM.createRoot(document.getElementById('root')).render(<DiaryApp />);
+    </script>
+</body>
+</html>
