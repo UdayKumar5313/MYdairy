@@ -23,7 +23,8 @@
     
     <!-- Three.js & Vanta.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.birds.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.dots.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
     
     <!-- Firebase SDK & Initialization -->
     <script type="module">
@@ -506,13 +507,17 @@
             const [showScrollTop, setShowScrollTop] = useState(false);
             
             const vantaRef = useRef(null);
+            const vantaEffectRef = useRef(null);
+            const audioContextRef = useRef(null);
+            const analyserRef = useRef(null);
+            const animationFrameRef = useRef(null);
+            
             const currentEntryRef = useRef(currentEntry);
             const currentRouteRef = useRef(currentRoute);
             
             useEffect(() => {
-                let vantaEffect;
                 if (window.VANTA && vantaRef.current) {
-                    vantaEffect = window.VANTA.BIRDS({
+                    vantaEffectRef.current = window.VANTA.NET({
                         el: vantaRef.current,
                         mouseControls: true,
                         touchControls: true,
@@ -521,24 +526,70 @@
                         minWidth: 200.00,
                         scale: 1.00,
                         scaleMobile: 1.00,
+                        color: 0x3b82f6,
                         backgroundColor: 0x0f172a,
-                        backgroundAlpha: 1,
-                        color1: 0x3b82f6,
-                        color2: 0x8b5cf6,
-                        colorMode: 'varianceGradient',
-                        quantity: 5,
-                        birdSize: 2.50,
-                        wingSpan: 35.00,
-                        speedLimit: 5,
-                        separation: 100.00,
-                        alignment: 38.00,
-                        cohesion: 100.00
+                        points: 12.00,        // Controls the number of dots
+                        maxDistance: 25.00,   // How far lines will stretch to connect
+                        spacing: 18.00,       // Spacing between the grid points
+                        showDots: true        // Set to false to hide dots and only show lines
                     });
                 }
                 return () => {
-                    if (vantaEffect) vantaEffect.destroy();
+                    if (vantaEffectRef.current) vantaEffectRef.current.destroy();
                 };
             }, []);
+            
+            // ============ AUDIO REACTIVE BACKGROUND ============
+            const handleAudioPlay = (e) => {
+                const audioEl = e.target;
+                try {
+                    if (!audioContextRef.current) {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        audioContextRef.current = new AudioContext();
+                        analyserRef.current = audioContextRef.current.createAnalyser();
+                        analyserRef.current.fftSize = 256;
+                    }
+                    if (audioContextRef.current.state === 'suspended') {
+                        audioContextRef.current.resume();
+                    }
+                    // Prevent re-connecting the same media element
+                    if (!audioEl._isAudioConnected) {
+                        const source = audioContextRef.current.createMediaElementSource(audioEl);
+                        source.connect(analyserRef.current);
+                        analyserRef.current.connect(audioContextRef.current.destination);
+                        audioEl._isAudioConnected = true;
+                    }
+                } catch (err) {
+                    console.warn("Web Audio API setup failed (cross-origin or already connected):", err);
+                }
+
+                if (!analyserRef.current) return;
+                const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+
+                const animateBackground = () => {
+                    if (!vantaEffectRef.current || audioEl.paused) return;
+                    
+                    analyserRef.current.getByteFrequencyData(dataArray);
+                    const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+                    
+                    // Dynamically map audio volume (0-255) to the Vanta Net grid spacing
+                    vantaEffectRef.current.setOptions({
+                        spacing: 18 + (average / 255) * 45,
+                        maxDistance: 25 + (average / 255) * 20
+                    });
+                    
+                    animationFrameRef.current = requestAnimationFrame(animateBackground);
+                };
+                animateBackground();
+            };
+
+            const handleAudioPause = () => {
+                if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+                if (vantaEffectRef.current) {
+                    // Smoothly reset the network back to defaults when paused
+                    vantaEffectRef.current.setOptions({ spacing: 18.00, maxDistance: 25.00 });
+                }
+            };
             
             // ============ FIREBASE AUTH & FIRESTORE SYNC ============
             useEffect(() => {
@@ -1519,7 +1570,7 @@
                                 {/* VOICE MEMO PLAYER */}
                                 {currentEntry.audioMemo && (
                                     <div className="mt-6 p-4 rounded-xl bg-white/20 dark:bg-black/40 border border-white/30 dark:border-white/10 backdrop-blur-md text-slate-900 dark:text-white">
-                                        <audio controls src={currentEntry.audioMemo} className="w-full"></audio>
+                                        <audio controls src={currentEntry.audioMemo} crossOrigin="anonymous" onPlay={handleAudioPlay} onPause={handleAudioPause} onEnded={handleAudioPause} className="w-full"></audio>
                                         <button
                                             onClick={() => setCurrentEntry({ ...currentEntry, audioMemo: null })}
                                             className="mt-3 px-4 py-2 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/20 transition-colors"
@@ -1642,7 +1693,7 @@
                                 
                                 {currentEntry.audioMemo && (
                                     <div className="mb-8 bg-black/10 dark:bg-white/5 rounded-2xl p-4 backdrop-blur-sm">
-                                        <audio controls src={currentEntry.audioMemo} className="w-full outline-none"></audio>
+                                        <audio controls src={currentEntry.audioMemo} crossOrigin="anonymous" onPlay={handleAudioPlay} onPause={handleAudioPause} onEnded={handleAudioPause} className="w-full outline-none"></audio>
                                     </div>
                                 )}
                                 
@@ -1743,6 +1794,49 @@
                                                 </div>
                                             );
                                         })}
+                                    </div>
+                                </div>
+
+                                {/* YEARLY ACTIVITY HEATMAP */}
+                                <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl p-6 sm:p-8 shadow-xl text-slate-900 dark:text-white overflow-hidden">
+                                    <h3 className="text-2xl font-bold mb-6">Yearly Activity</h3>
+                                    <div className="overflow-x-auto hide-scrollbar pb-4 -mx-2 px-2">
+                                        <div className="grid grid-rows-7 grid-flow-col gap-1.5 sm:gap-2 min-w-max">
+                                            {[...Array(365)].map((_, i) => {
+                                                const date = new Date();
+                                                date.setDate(date.getDate() - 364 + i);
+                                                
+                                                const dayEntries = entries.filter(e => {
+                                                    const eDate = new Date(e.date);
+                                                    return eDate.getDate() === date.getDate() && eDate.getMonth() === date.getMonth() && eDate.getFullYear() === date.getFullYear();
+                                                });
+                                                
+                                                const count = dayEntries.length;
+                                                let bgColor = 'bg-white/10 dark:bg-white/5 border border-white/10 dark:border-white/5';
+                                                
+                                                // Glowing intensity based on entry count
+                                                if (count === 1) bgColor = 'bg-blue-400/50 border-blue-400/60 shadow-[0_0_8px_rgba(96,165,250,0.4)]';
+                                                if (count === 2) bgColor = 'bg-blue-500/70 border-blue-500/80 shadow-[0_0_10px_rgba(59,130,246,0.6)]';
+                                                if (count >= 3) bgColor = 'bg-blue-600/90 border-blue-600 shadow-[0_0_12px_rgba(37,99,235,0.8)]';
+                                                
+                                                return (
+                                                    <div 
+                                                        key={i} 
+                                                        className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-sm ${bgColor} transition-all duration-300 hover:scale-[2.5] hover:z-10 cursor-help relative`}
+                                                        title={`${date.toLocaleDateString()}: ${count} entries`}
+                                                    >
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2 mt-4 text-xs font-bold opacity-70">
+                                        <span>Less</span>
+                                        <div className="w-3 h-3 rounded-sm bg-white/10 border border-white/10"></div>
+                                        <div className="w-3 h-3 rounded-sm bg-blue-400/50 border border-blue-400/60"></div>
+                                        <div className="w-3 h-3 rounded-sm bg-blue-500/70 border border-blue-500/80"></div>
+                                        <div className="w-3 h-3 rounded-sm bg-blue-600/90 border border-blue-600"></div>
+                                        <span>More</span>
                                     </div>
                                 </div>
                             </div>
