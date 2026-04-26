@@ -173,13 +173,13 @@
             
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all">
-                        <h2 className="text-xl font-bold mb-2 dark:text-white">{title}</h2>
-                        <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
+                    <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all text-slate-900 dark:text-white">
+                        <h2 className="text-xl font-bold mb-2">{title}</h2>
+                        <p className="opacity-80 mb-6">{message}</p>
                         <div className="flex gap-3 justify-end">
                             <button
                                 onClick={onCancel}
-                                className="px-4 py-2 rounded-xl bg-gray-200/80 dark:bg-slate-700/80 hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors font-medium"
+                                className="px-4 py-2 rounded-xl bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 transition-colors font-medium backdrop-blur-md"
                             >
                                 {cancelText}
                             </button>
@@ -207,8 +207,7 @@
                     const ctx = canvas.getContext('2d');
                     canvas.width = window.innerWidth;
                     canvas.height = window.innerHeight - 80;
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
                 }
             }, []);
             
@@ -252,22 +251,21 @@
             
             const handleClear = () => {
                 const ctx = canvasRef.current.getContext('2d');
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
             };
             
             return (
-                <div className="fixed inset-0 bg-black z-50 flex flex-col">
-                    <div className="flex justify-between items-center p-4 bg-gray-800 text-white">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-50 flex flex-col p-4 sm:p-8">
+                    <div className="flex justify-between items-center p-4 bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-t-2xl text-slate-900 dark:text-white shadow-xl">
                         <h2 className="text-xl font-bold">Draw Something</h2>
                         <div className="flex gap-3">
-                            <button onClick={handleClear} className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700 font-medium">
+                            <button onClick={handleClear} className="px-4 py-2 bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 rounded-lg hover:bg-white/40 dark:hover:bg-black/60 font-medium backdrop-blur-md">
                                 <i className="fas fa-trash"></i> Clear
                             </button>
-                            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-medium">
+                            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-medium text-white">
                                 <i className="fas fa-save"></i> Save
                             </button>
-                            <button onClick={onClose} className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 font-medium">
+                            <button onClick={onClose} className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 font-medium text-white">
                                 <i className="fas fa-times"></i> Close
                             </button>
                         </div>
@@ -281,7 +279,7 @@
                         onTouchStart={startDrawing}
                         onTouchMove={draw}
                         onTouchEnd={stopDrawing}
-                        className="cursor-crosshair flex-1 touch-none bg-white"
+                        className="cursor-crosshair flex-1 touch-none bg-white/50 dark:bg-white/80 backdrop-blur-md rounded-b-2xl shadow-xl"
                     ></canvas>
                 </div>
             );
@@ -304,13 +302,13 @@
             }, []);
             
             return (
-                <div className="fixed inset-0 bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-2xl flex items-center justify-center z-50 text-white">
                     <div className="text-center">
                         <div className="breathing-circle bg-white/20 mb-8"></div>
-                        <h2 className="text-4xl font-bold text-white mb-4">{breathingText}</h2>
+                        <h2 className="text-4xl font-bold mb-4 drop-shadow-lg">{breathingText}</h2>
                         <button
                             onClick={onClose}
-                            className="mt-16 px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100"
+                            className="mt-16 px-6 py-3 bg-white/30 border border-white/30 text-white rounded-lg font-semibold hover:bg-white/40 backdrop-blur-md transition-all shadow-lg"
                         >
                             Close
                         </button>
@@ -379,11 +377,11 @@
             
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
-                        <h2 className="text-2xl font-bold mb-6 text-center dark:text-white">Record Voice Memo</h2>
+                    <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-slate-900 dark:text-white">
+                        <h2 className="text-2xl font-bold mb-6 text-center">Record Voice Memo</h2>
                         
                         <div className="flex justify-center mb-6">
-                            <div className={`w-24 h-24 rounded-full flex items-center justify-center shadow-inner ${recording ? 'bg-red-500 animate-pulse shadow-red-500/50' : 'bg-gray-100 dark:bg-slate-700'}`}>
+                            <div className={`w-24 h-24 rounded-full flex items-center justify-center shadow-inner ${recording ? 'bg-red-500 animate-pulse shadow-red-500/50 text-white' : 'bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 backdrop-blur-md'}`}>
                                 <i className={`fas fa-microphone text-3xl ${recording ? 'text-white' : 'text-gray-600'}`}></i>
                             </div>
                         </div>
@@ -403,14 +401,14 @@
                             ) : (
                                 <button
                                     onClick={stopRecording}
-                                    className="flex-1 py-3 bg-gray-600 text-white rounded-xl font-semibold hover:bg-gray-700 shadow-md transition-all"
+                                    className="flex-1 py-3 bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 backdrop-blur-md rounded-xl font-semibold hover:bg-white/40 dark:hover:bg-black/60 shadow-md transition-all text-slate-900 dark:text-white"
                                 >
                                     <i className="fas fa-stop"></i> Stop
                                 </button>
                             )}
                             <button
                                 onClick={onClose}
-                                className="flex-1 py-3 bg-gray-200 dark:bg-slate-700 rounded-xl font-semibold hover:bg-gray-300 dark:hover:bg-slate-600 transition-all"
+                                    className="flex-1 py-3 bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 backdrop-blur-md rounded-xl font-semibold hover:bg-white/40 dark:hover:bg-black/60 transition-all text-slate-900 dark:text-white"
                             >
                                 Cancel
                             </button>
@@ -484,12 +482,12 @@
                         color2: 0xd1ff,
                         colorMode: 'varianceGradient',
                         quantity: 5,
-                        birdSize: 1,
-                        wingSpan: 30,
+                        birdSize: 2.50,
+                        wingSpan: 35.00,
                         speedLimit: 5,
-                        separation: 20,
-                        alignment: 20,
-                        cohesion: 20
+                        separation: 100.00,
+                        alignment: 38.00,
+                        cohesion: 100.00
                     });
                 }
                 return () => {
@@ -751,14 +749,14 @@
 
                     {cloudStatus === 'needs_login' && (
                         <div className="flex flex-col items-center justify-center min-h-screen p-4 transition-colors">
-                            <div className={`backdrop-blur-xl border rounded-3xl shadow-2xl p-8 max-w-md w-full ${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white/40 text-gray-900'}`}>
+                            <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-3xl shadow-2xl p-8 max-w-md w-full text-slate-900 dark:text-white">
                                 <div className="flex justify-center mb-6"><i className="fas fa-cloud text-5xl text-blue-500"></i></div>
                                 <h2 className="text-3xl font-bold mb-2 text-center">Master Diary Pro</h2>
                                 <p className="opacity-75 mb-8 text-center text-sm">{isSignUp ? "Create an account to sync your memories." : "Sign in to access your synced memories."}</p>
                                 
                                 <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
-                                    <input type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className={`w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-100 border-gray-200'} border`} required />
-                                    <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className={`w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-100 border-gray-200'} border`} required minLength="6" />
+                                    <input type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-600 dark:placeholder-gray-400 backdrop-blur-md shadow-inner" required />
+                                    <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-600 dark:placeholder-gray-400 backdrop-blur-md shadow-inner" required minLength="6" />
                                     <button type="submit" disabled={authLoading} className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-bold text-lg transition flex justify-center items-center shadow-lg">
                                         {authLoading ? <i className="fas fa-spinner fa-spin"></i> : (isSignUp ? "Sign Up" : "Sign In")}
                                     </button>
@@ -770,7 +768,7 @@
                                     </button>
                                 </div>
                                 
-                                <button onClick={() => setCloudStatus('offline')} className={`w-full py-3 mt-2 font-medium text-sm rounded-xl transition ${darkMode ? 'text-gray-400 hover:text-white border border-slate-700 hover:bg-slate-800' : 'text-gray-500 hover:text-gray-900 border border-gray-300 hover:bg-gray-100'}`}>
+                                <button onClick={() => setCloudStatus('offline')} className="w-full py-3 mt-2 font-medium text-sm rounded-xl transition text-slate-700 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white border border-white/30 dark:border-white/10 hover:bg-white/30 dark:hover:bg-black/50 backdrop-blur-md">
                                     Use Offline Mode (No Cloud Sync)
                                 </button>
                             </div>
@@ -782,7 +780,7 @@
                     {/* HEADER */}
                     {currentRoute === 'dashboard' && (
                         <>
-                        <header className={`${darkMode ? 'bg-slate-900/80 border-slate-700/50' : 'bg-white/80 border-white/40'} backdrop-blur-xl border-b sticky top-0 z-40 shadow-sm`}>
+                        <header className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border-b border-white/30 dark:border-white/10 sticky top-0 z-40 shadow-sm text-slate-900 dark:text-white">
                             <div className="max-w-7xl mx-auto px-4 py-4">
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-2">
@@ -813,7 +811,7 @@
                                             placeholder="Search entries..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className={`w-full px-5 py-2.5 rounded-xl ${darkMode ? 'bg-slate-800/80 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-900'} border shadow-inner focus:ring-2 focus:ring-blue-500 outline-none transition-all`}
+                                            className="w-full px-5 py-2.5 rounded-xl bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-600 dark:placeholder-gray-400 backdrop-blur-md shadow-inner focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                         />
                                     </div>
                                     
@@ -827,14 +825,14 @@
                                         </button>
                                         <button
                                             onClick={() => setTextSize(textSize === 'small' ? 'normal' : textSize === 'normal' ? 'large' : 'small')}
-                                            className={`px-3 py-2 ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'} rounded-xl shadow-sm transition-colors text-sm font-medium`}
+                                            className="px-3 py-2 bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 rounded-xl shadow-sm transition-colors text-sm font-medium text-slate-900 dark:text-white backdrop-blur-md"
                                             title="Text Size"
                                         >
                                         <i className="fas fa-text-height"></i> {textSize}
                                         </button>
                                         <button
                                             onClick={() => setDarkMode(!darkMode)}
-                                            className={`px-3 py-2 ${darkMode ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'} rounded-xl shadow-sm transition-colors text-sm font-medium`}
+                                            className="px-3 py-2 bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 rounded-xl shadow-sm transition-colors text-sm font-medium text-slate-900 dark:text-white backdrop-blur-md"
                                             title="Dark Mode"
                                         >
                                             <i className={`fas fa-${darkMode ? 'sun' : 'moon'}`}></i>
@@ -847,7 +845,7 @@
                                         <select
                                             value={sortBy}
                                             onChange={(e) => setSortBy(e.target.value)}
-                                            className={`px-4 py-2 rounded-xl text-sm font-medium ${darkMode ? 'bg-slate-800/80 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-900'} border outline-none`}
+                                            className="px-4 py-2 rounded-xl text-sm font-medium bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                                         >
                                             <option value="newest">Newest</option>
                                             <option value="oldest">Oldest</option>
@@ -856,13 +854,13 @@
                                         </select>
                                         <button
                                             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                                            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm ${showFavoritesOnly ? 'bg-yellow-500 text-white shadow-yellow-500/30' : darkMode ? 'bg-slate-800/80 text-white border border-slate-600' : 'bg-white text-gray-700 border border-gray-200'}`}
+                                            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm backdrop-blur-md border ${showFavoritesOnly ? 'bg-yellow-500/80 text-white border-yellow-400/50 shadow-yellow-500/30' : 'bg-white/30 dark:bg-black/50 border-white/30 dark:border-white/10 text-slate-900 dark:text-white hover:bg-white/40 dark:hover:bg-black/60'}`}
                                         >
                                             <i className="fas fa-star"></i> Favorites
                                         </button>
                                         <button
                                             onClick={() => setViewMode(viewMode === 'timeline' ? 'grid' : 'timeline')}
-                                            className={`px-4 py-2 rounded-xl text-sm transition-colors shadow-sm ${darkMode ? 'bg-slate-800/80 text-white border border-slate-600' : 'bg-white text-gray-700 border border-gray-200'}`}
+                                            className="px-4 py-2 rounded-xl text-sm transition-colors shadow-sm bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white hover:bg-white/40 dark:hover:bg-black/60 backdrop-blur-md"
                                         >
                                             <i className={`fas fa-${viewMode === 'timeline' ? 'th' : 'list'}`}></i>
                                         </button>
@@ -919,7 +917,7 @@
                                 </div>
                             </div>
                         </header>
-                        <div className={`${darkMode ? 'bg-slate-900/60 border-slate-700/50 text-gray-300' : 'bg-white/60 border-white/50 text-gray-600'} backdrop-blur-md border-b px-4 py-2 text-xs font-medium tracking-wide`}>
+                        <div className="bg-white/10 dark:bg-black/20 backdrop-blur-xl border-b border-white/30 dark:border-white/10 px-4 py-2 text-xs font-medium tracking-wide text-slate-800 dark:text-gray-200">
                             <div className="max-w-7xl mx-auto flex gap-6">
                                 <span><i className="fas fa-file-alt"></i> {entries.length} entries</span>
                                 <span><i className="fas fa-star"></i> {entries.filter(e => e.isFavorite).length} favorited</span>
@@ -942,7 +940,7 @@
                                 
                                 if (onThisDay.length > 0) {
                                     return (
-                                        <div className={`${darkMode ? 'bg-slate-800/80 border-blue-400' : 'bg-blue-50/90 border-blue-500'} backdrop-blur-md border-l-4 p-5 rounded-2xl shadow-sm mb-6`}>
+                                        <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 border-l-4 border-l-blue-500 p-5 rounded-2xl shadow-xl mb-6 text-slate-900 dark:text-white">
                                             <h3 className={`font-bold mb-3 ${darkMode ? 'text-blue-300' : 'text-blue-900'}`}>
                                                 <i className="fas fa-history mr-2"></i> On This Day...
                                             </h3>
@@ -965,7 +963,7 @@
                     {currentRoute === 'dashboard' && (
                         <div className={`max-w-7xl mx-auto px-4 py-8`}>
                             {filteredAndSortedEntries.length === 0 ? (
-                                <div className={`text-center py-16 rounded-3xl backdrop-blur-xl border ${darkMode ? 'bg-slate-900/50 border-slate-700/50' : 'bg-white/50 border-white/50'} shadow-xl`}>
+                                <div className="text-center py-16 rounded-3xl backdrop-blur-2xl border border-white/30 dark:border-white/10 bg-white/20 dark:bg-black/40 shadow-xl text-slate-900 dark:text-white">
                                     <i className="fas fa-inbox text-4xl text-gray-400 mb-4"></i>
                                     <p className={`text-xl ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No entries found</p>
                                 </div>
@@ -978,7 +976,7 @@
                                                 setCurrentEntry(entry);
                                                 setCurrentRoute('reader');
                                             }}
-                                            className={`${darkMode ? 'bg-slate-800/80 hover:bg-slate-700/90 border-slate-700/50' : 'bg-white/80 hover:bg-white border-white/60'} backdrop-blur-xl border rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 p-5 cursor-pointer flex flex-col justify-between card-color-${entry.color}`}
+                                            className={`bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 p-5 cursor-pointer flex flex-col justify-between card-color-${entry.color} text-slate-900 dark:text-white`}
                                             style={entry.backgroundImage ? { backgroundImage: `url(${entry.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
                                         >
                                             {entry.backgroundImage && (
@@ -1059,9 +1057,9 @@
                     {/* EDITOR VIEW */}
                     {currentRoute === 'editor' && currentEntry && (
                         <div className="min-h-screen">
-                            <div className={`${darkMode ? 'bg-slate-900/80 border-slate-700/50' : 'bg-white/80 border-white/50'} backdrop-blur-xl border-b p-4 sticky top-0 z-40 shadow-sm`}>
+                            <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border-b border-white/30 dark:border-white/10 p-4 sticky top-0 z-40 shadow-sm text-slate-900 dark:text-white">
                                 <div className="flex justify-between items-center max-w-4xl mx-auto">
-                                    <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Edit Entry</h2>
+                                    <h2 className="text-2xl font-bold">Edit Entry</h2>
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => {
@@ -1085,7 +1083,7 @@
                                                 setCurrentRoute('dashboard');
                                                 setCurrentEntry(null);
                                             }}
-                                            className={`px-4 py-2 rounded-xl transition-colors font-semibold ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
+                                            className="px-4 py-2 rounded-xl transition-colors font-semibold bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             Done
                                         </button>
@@ -1093,7 +1091,7 @@
                                 </div>
                             </div>
                             
-                            <div className={`max-w-4xl mx-auto p-6 mt-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 mb-12`}>
+                            <div className="max-w-4xl mx-auto p-6 mt-6 bg-white/20 dark:bg-black/40 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/30 dark:border-white/10 mb-12 text-slate-900 dark:text-white">
                                 {/* BACKGROUND IMAGE */}
                                 {currentEntry.backgroundImage && (
                                     <div className="relative mb-6 h-48 rounded-2xl overflow-hidden shadow-inner">
@@ -1114,7 +1112,7 @@
                                             <select
                                                 value={currentEntry.mood || ''}
                                                 onChange={(e) => setCurrentEntry({ ...currentEntry, mood: e.target.value })}
-                                                className={`px-4 py-2 rounded-xl font-medium outline-none shadow-sm cursor-pointer transition-colors ${darkMode ? 'bg-slate-800/80 text-white border border-slate-600/50' : 'bg-white text-gray-700 border border-gray-200'}`}
+                                                className="px-4 py-2 rounded-xl font-medium outline-none shadow-sm cursor-pointer transition-colors bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                             >
                                                 <option value="">Mood</option>
                                                 <option value="happy">😊 Happy</option>
@@ -1125,7 +1123,7 @@
                                             <select
                                                 value={currentEntry.weather || ''}
                                                 onChange={(e) => setCurrentEntry({ ...currentEntry, weather: e.target.value })}
-                                                className={`px-4 py-2 rounded-xl font-medium outline-none shadow-sm cursor-pointer transition-colors ${darkMode ? 'bg-slate-800/80 text-white border border-slate-600/50' : 'bg-white text-gray-700 border border-gray-200'}`}
+                                                className="px-4 py-2 rounded-xl font-medium outline-none shadow-sm cursor-pointer transition-colors bg-white/30 dark:bg-black/50 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                             >
                                                 <option value="">Weather</option>
                                                 <option value="sunny">☀️ Sunny</option>
@@ -1136,7 +1134,7 @@
                                             
                                             <button
                                                 onClick={() => setCurrentEntry({ ...currentEntry, isFavorite: !currentEntry.isFavorite })}
-                                                className={`px-4 py-2 rounded-xl font-medium shadow-sm transition-all ${currentEntry.isFavorite ? 'bg-yellow-500 text-white shadow-yellow-500/40 scale-105' : darkMode ? 'bg-slate-800/80 text-white border border-slate-600/50 hover:bg-slate-700' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
+                                                className={`px-4 py-2 rounded-xl font-medium shadow-sm transition-all backdrop-blur-md border ${currentEntry.isFavorite ? 'bg-yellow-500/80 text-white border-yellow-400/50 shadow-yellow-500/40 scale-105' : 'bg-white/30 dark:bg-black/50 border-white/30 dark:border-white/10 text-slate-900 dark:text-white hover:bg-white/40 dark:hover:bg-black/60'}`}
                                             >
                                                 {currentEntry.isFavorite ? '⭐ Favorited' : '☆ Favorite'}
                                             </button>
@@ -1160,20 +1158,20 @@
                                     value={currentEntry.title}
                                     onChange={(e) => setCurrentEntry({ ...currentEntry, title: e.target.value })}
                                     placeholder="Entry Title"
-                                    className={`w-full text-4xl font-bold mb-4 p-2 bg-transparent outline-none transition-colors border-b-2 border-transparent focus:border-blue-500/50 ${darkMode ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`}
+                                    className={`w-full text-4xl font-bold mb-4 p-2 bg-transparent outline-none transition-colors border-b-2 border-transparent focus:border-blue-500/50 placeholder-gray-500 dark:placeholder-gray-400`}
                                 />
                                 
                                 <textarea
                                     value={currentEntry.content}
                                     onChange={(e) => setCurrentEntry({ ...currentEntry, content: e.target.value })}
                                     placeholder="Start writing..."
-                                    className={`w-full h-80 p-2 bg-transparent outline-none resize-none text-lg leading-relaxed ${darkMode ? 'text-gray-200 placeholder-gray-600' : 'text-gray-800 placeholder-gray-400'}`}
+                                    className={`w-full h-80 p-2 bg-transparent outline-none resize-none text-lg leading-relaxed placeholder-gray-500 dark:placeholder-gray-400`}
                                     style={{ fontSize: textSize === 'small' ? '14px' : textSize === 'large' ? '20px' : '16px' }}
                                 />
                                 
                                 {/* TOOLBAR */}
                                 {!focusMode && (
-                                    <div className={`mt-6 pt-6 border-t ${darkMode ? 'border-slate-700/50' : 'border-gray-200/50'} flex flex-wrap gap-3`}>
+                                    <div className="mt-6 pt-6 border-t border-white/30 dark:border-white/10 flex flex-wrap gap-3">
                                         <button
                                             onClick={() => {
                                                 const textarea = document.querySelector('textarea');
@@ -1186,7 +1184,7 @@
                                                 const after = text.substring(end);
                                             setCurrentEntry(prev => ({ ...prev, content: before + '**' + selected + '**' + after }));
                                             }}
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-bold text-gray-500"></i> Bold
                                         </button>
@@ -1203,7 +1201,7 @@
                                                 const after = text.substring(end);
                                             setCurrentEntry(prev => ({ ...prev, content: before + '_' + selected + '_' + after }));
                                             }}
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-italic text-gray-500"></i> Italic
                                         </button>
@@ -1219,7 +1217,7 @@
                                                 const after = text.substring(end);
                                             setCurrentEntry(prev => ({ ...prev, content: before + '\n- ' + after }));
                                             }}
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-list text-gray-500"></i> List
                                         </button>
@@ -1231,7 +1229,7 @@
                                                 setCurrentEntry({ ...currentEntry, tags: uniqueTags });
                                                 showToast('Tags auto-generated');
                                             }}
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-wand-magic-sparkles text-purple-500"></i> Auto-Tag
                                         </button>
@@ -1258,7 +1256,7 @@
                                                     }
                                                 );
                                             }}
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-location-dot text-blue-500"></i> Location
                                         </button>
@@ -1271,12 +1269,12 @@
                                                     showToast('Background image set');
                                                 }
                                             }}
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-image text-indigo-500"></i> Background
                                         </button>
                                         
-                                        <label className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium cursor-pointer transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
+                                        <label className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium cursor-pointer transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md">
                                             <i className="fas fa-camera text-green-500"></i> Photo
                                             <input
                                                 type="file"
@@ -1316,21 +1314,21 @@
                                                     alert('Speech recognition not supported in this browser.');
                                                 }
                                             }}
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-microphone text-orange-500"></i> Dictate
                                         </button>
                                         
                                         <button
                                             onClick={() => setShowVoiceRecorder(true)}
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-record-vinyl text-red-500"></i> Voice Memo
                                         </button>
                                         
                                         <button
                                             onClick={() => setShowDrawing(true)}
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fas fa-paintbrush text-pink-500"></i> Doodle
                                         </button>
@@ -1348,7 +1346,7 @@
                                                     }
                                                 }
                                             }}
-                                            className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                                            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors bg-white/30 dark:bg-black/50 hover:bg-white/40 dark:hover:bg-black/60 border border-white/30 dark:border-white/10 text-slate-900 dark:text-white backdrop-blur-md"
                                         >
                                             <i className="fab fa-youtube text-red-600"></i> YouTube
                                         </button>
@@ -1377,7 +1375,7 @@
                                 
                                 {/* VOICE MEMO PLAYER */}
                                 {currentEntry.audioMemo && (
-                                    <div className={`mt-6 p-4 rounded-xl ${darkMode ? 'bg-slate-800/80' : 'bg-gray-100'}`}>
+                                    <div className="mt-6 p-4 rounded-xl bg-white/20 dark:bg-black/40 border border-white/30 dark:border-white/10 backdrop-blur-md text-slate-900 dark:text-white">
                                         <audio controls src={currentEntry.audioMemo} className="w-full"></audio>
                                         <button
                                             onClick={() => setCurrentEntry({ ...currentEntry, audioMemo: null })}
@@ -1494,7 +1492,7 @@
                                 </button>
                             </div>
                             
-                            <div className={`relative max-w-3xl mx-auto p-10 pt-12 my-12 backdrop-blur-2xl rounded-3xl shadow-2xl border ${currentEntry.backgroundImage ? 'bg-black/40 border-white/20 text-white' : darkMode ? 'bg-slate-900/80 border-slate-700/50 text-gray-200' : 'bg-white/90 border-white text-gray-900'}`}>
+                            <div className={`relative max-w-3xl mx-auto p-10 pt-12 my-12 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/30 dark:border-white/10 text-slate-900 dark:text-white ${currentEntry.backgroundImage ? 'bg-black/60 text-white' : 'bg-white/20 dark:bg-black/40'}`}>
                                 <div className="flex justify-between items-start mb-6">
                                     <div>
                                         <p className="text-sm font-medium opacity-75 mb-3 tracking-wide uppercase">
@@ -1587,27 +1585,27 @@
                                 
                                 {/* KPI CARDS */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
-                                    <div className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform`}>
+                                    <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform text-slate-900 dark:text-white">
                                         <p className={`text-sm opacity-75 mb-2`}>Total Entries</p>
                                         <p className="text-3xl font-bold">{entries.length}</p>
                                     </div>
-                                    <div className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform`}>
+                                    <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform text-slate-900 dark:text-white">
                                         <p className={`text-sm opacity-75 mb-2`}>Current Streak</p>
                                         <p className="text-3xl font-bold text-orange-500">{dayStreak}</p>
                                     </div>
-                                    <div className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform`}>
+                                    <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform text-slate-900 dark:text-white">
                                         <p className={`text-sm opacity-75 mb-2`}>Total Words</p>
                                         <p className="text-3xl font-bold">{entries.reduce((sum, e) => sum + (e.content ? e.content.trim().split(/\s+/).filter(w => w.length > 0).length : 0), 0)}</p>
                                     </div>
-                                    <div className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform`}>
+                                    <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl p-6 shadow-xl transform hover:-translate-y-1 transition-transform text-slate-900 dark:text-white">
                                         <p className={`text-sm opacity-75 mb-2`}>Favorites</p>
                                         <p className="text-3xl font-bold text-yellow-500">{entries.filter(e => e.isFavorite).length}</p>
                                     </div>
                                 </div>
                                 
                                 {/* MOOD HEATMAP */}
-                                <div className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-white' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-8 shadow-xl`}>
-                                    <h3 className={`text-2xl font-bold mb-6 ${darkMode ? 'text-white' : ''}`}>30-Day Mood Heatmap</h3>
+                                <div className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl p-8 shadow-xl text-slate-900 dark:text-white">
+                                    <h3 className="text-2xl font-bold mb-6">30-Day Mood Heatmap</h3>
                                     <div className="grid grid-cols-7 gap-3">
                                         {[...Array(30)].map((_, i) => {
                                             const date = new Date();
@@ -1617,7 +1615,7 @@
                                                 return eDate.getDate() === date.getDate() && eDate.getMonth() === date.getMonth() && eDate.getFullYear() === date.getFullYear();
                                             });
                                             
-                                            let bgColor = 'bg-gray-200/50 text-gray-600 dark:bg-slate-700/50 dark:text-gray-400';
+                                            let bgColor = 'bg-white/30 dark:bg-black/50 text-slate-900 dark:text-white border border-white/30 dark:border-white/10 backdrop-blur-md';
                                             if (entry) {
                                                 bgColor = entry.mood === 'happy' ? 'bg-green-500 text-white shadow-lg shadow-green-500/40' : entry.mood === 'neutral' ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/40' : 'bg-blue-500 text-white shadow-lg shadow-blue-500/40';
                                             }
@@ -1663,13 +1661,13 @@
                                 
                                 <div className="space-y-4">
                                     {trash.length === 0 ? (
-                                        <div className={`text-center py-16 rounded-3xl backdrop-blur-xl border ${darkMode ? 'bg-slate-900/50 border-slate-700/50 text-gray-400' : 'bg-white/50 border-white/50 text-gray-500'} shadow-xl`}>
+                                        <div className="text-center py-16 rounded-3xl backdrop-blur-2xl border border-white/30 dark:border-white/10 bg-white/20 dark:bg-black/40 shadow-xl text-slate-900 dark:text-white">
                                             <i className="fas fa-trash-can text-5xl opacity-40 mb-4"></i>
                                             <p className="opacity-75">Trash is empty</p>
                                         </div>
                                     ) : (
                                         trash.map(entry => (
-                                            <div key={entry.id} className={`${darkMode ? 'bg-slate-800/80 border-slate-700/50 text-gray-200' : 'bg-white/80 border-white text-gray-900'} backdrop-blur-xl border rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4`}>
+                                            <div key={entry.id} className="bg-white/20 dark:bg-black/40 backdrop-blur-2xl border border-white/30 dark:border-white/10 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4 text-slate-900 dark:text-white">
                                                 <div className="flex-1">
                                                     <h3 className="font-bold text-lg">{entry.title || 'Untitled'}</h3>
                                                     <p className="text-sm opacity-75">{new Date(entry.deletedAt).toLocaleDateString()}</p>
