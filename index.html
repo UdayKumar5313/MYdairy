@@ -14,7 +14,7 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Global CDNs (Lightning Fast) -->
+    <!-- Global CDNs (Lightning Fast & Zero Error) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -23,6 +23,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.birds.min.js"></script>
     
+    <!-- Markdown Processing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+
     <style>
         /* =========================================
            HIGH-PERFORMANCE PURE GLASS THEME
@@ -380,6 +384,7 @@
             );
         };
         
+        // Highly Robust YouTube URL Embed Matcher
         const getYouTubeEmbedUrl = (url) => {
             if (!url) return null;
             const regExp = /^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))((\w|-){11})(?:\S+)?$/;
@@ -443,6 +448,13 @@
             const [deleteModal, setDeleteModal] = useState({ isOpen: false, entryId: null });
             const [promptModal, setPromptModal] = useState({ isOpen: false });
 
+            // Auth State
+            const [name, setName] = useState('');
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [isSignUp, setIsSignUp] = useState(false);
+            const [authLoading, setAuthLoading] = useState(false);
+
             // Refs
             const vantaRef = useRef(null);
             const vantaEffectRef = useRef(null);
@@ -492,7 +504,7 @@
                         }
 
                         authMod.onAuthStateChanged(fbAuth, (u) => {
-                            setUser(u); setCloudStatus(u ? 'connected' : (isCanvasEnv ? 'connected' : 'offline'));
+                            setUser(u); setCloudStatus(u ? 'connected' : 'needs_login');
                         });
                     } catch (e) { console.error("Cloud unavailable", e); setCloudStatus('offline'); }
                 };
@@ -503,16 +515,33 @@
             useEffect(() => {
                 if (cloudStatus !== 'connected' || !user || !firebaseLibs) return;
                 const { fsMod, db } = firebaseLibs;
-                const entriesUnsub = fsMod.onSnapshot(fsMod.collection(db, getCollectionPath('entries', user.uid)), (snap) => {
-                    const data = []; snap.forEach(d => data.push(d.data()));
-                    if (data.length > 0) { setEntries(data); storage.set('diaryEntries', data); }
-                });
-                const trashUnsub = fsMod.onSnapshot(fsMod.collection(db, getCollectionPath('trash', user.uid)), (snap) => {
-                    const data = []; snap.forEach(d => data.push(d.data()));
-                    setTrash(data); storage.set('diaryTrash', data);
-                });
+                
+                const entriesUnsub = fsMod.onSnapshot(
+                    fsMod.collection(db, getCollectionPath('entries', user.uid)), 
+                    (snap) => {
+                        const data = []; snap.forEach(d => data.push(d.data()));
+                        if (data.length > 0) { setEntries(data); storage.set('diaryEntries', data); }
+                    },
+                    (error) => {
+                        console.error("Entries Sync Error", error);
+                        showToast("Live sync disconnected. Working locally.");
+                        setCloudStatus('offline');
+                    }
+                );
+                
+                const trashUnsub = fsMod.onSnapshot(
+                    fsMod.collection(db, getCollectionPath('trash', user.uid)), 
+                    (snap) => {
+                        const data = []; snap.forEach(d => data.push(d.data()));
+                        setTrash(data); storage.set('diaryTrash', data);
+                    },
+                    (error) => {
+                        console.error("Trash Sync Error", error);
+                    }
+                );
+                
                 return () => { entriesUnsub(); trashUnsub(); };
-            }, [user, cloudStatus, firebaseLibs]);
+            }, [user, cloudStatus, firebaseLibs, showToast]);
 
             // Auto-Save Management
             useEffect(() => { currentEntryRef.current = currentEntry; currentRouteRef.current = currentRoute; }, [currentEntry, currentRoute]);
@@ -611,6 +640,50 @@
                 }; input.click();
             };
 
+            const handleEmailAuth = async (e) => {
+                e.preventDefault();
+                if (!email || !password || (isSignUp && !name)) return showToast("Required fields missing");
+                if (!firebaseLibs) return showToast("Cloud not ready yet.");
+                const { authMod, auth } = firebaseLibs;
+                setAuthLoading(true);
+                try {
+                    if (isSignUp) {
+                        const userCredential = await authMod.createUserWithEmailAndPassword(auth, email, password);
+                        await authMod.updateProfile(userCredential.user, { displayName: name });
+                        const newAppName = `${name}'s Diary`;
+                        setAppName(newAppName); storage.set('appName', newAppName);
+                        showToast("Account created successfully!");
+                    } else {
+                        const userCredential = await authMod.signInWithEmailAndPassword(auth, email, password);
+                        if (userCredential.user.displayName) {
+                            const newAppName = `${userCredential.user.displayName}'s Diary`;
+                            setAppName(newAppName); storage.set('appName', newAppName);
+                        }
+                        showToast("Signed in successfully!");
+                    }
+                } catch(err) { 
+                    console.error("Auth Error:", err);
+                    if (err.code === 'auth/operation-not-allowed' || err.code === 'auth/admin-restricted-operation') {
+                        if (isCanvasEnv) {
+                            showToast("Email login unavailable. Using secure Canvas session.");
+                            try { await authMod.signInAnonymously(auth); } catch(e) { setCloudStatus('offline'); }
+                        } else {
+                            showToast("Please enable 'Email/Password' sign-in in your Firebase Console.");
+                        }
+                    } else if (err.code === 'auth/email-already-in-use') {
+                        showToast("Email already registered. Please log in.");
+                    } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+                        showToast("Invalid email or password.");
+                    } else if (err.code === 'auth/weak-password') {
+                        showToast("Password must be at least 6 characters.");
+                    } else {
+                        showToast(err.message.replace('Firebase: ', '')); 
+                    }
+                } finally { 
+                    setAuthLoading(false); 
+                }
+            };
+
             // Filters & Derived State
             const filteredEntries = entries
                 .filter(e => (currentNotebook === 'All' || e.notebook === currentNotebook))
@@ -699,45 +772,6 @@
                 URL.revokeObjectURL(url); showToast('Markdown downloaded');
             };
 
-            // Audio Visualizer - Makes birds fly faster!
-            const handleAudioPlay = (e) => {
-                const audioEl = e.target;
-                try {
-                    if (!audioContextRef.current) {
-                        const AudioContext = window.AudioContext || window.webkitAudioContext;
-                        audioContextRef.current = new AudioContext();
-                        analyserRef.current = audioContextRef.current.createAnalyser();
-                        analyserRef.current.fftSize = 256;
-                    }
-                    if (audioContextRef.current.state === 'suspended') audioContextRef.current.resume();
-                    if (!audioEl._isAudioConnected) {
-                        const source = audioContextRef.current.createMediaElementSource(audioEl);
-                        source.connect(analyserRef.current); analyserRef.current.connect(audioContextRef.current.destination);
-                        audioEl._isAudioConnected = true;
-                    }
-                } catch (err) {}
-                if (!analyserRef.current) return;
-                const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-                
-                const animateBackground = () => {
-                    if (!vantaEffectRef.current || audioEl.paused) return;
-                    analyserRef.current.getByteFrequencyData(dataArray);
-                    const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-                    
-                    vantaEffectRef.current.setOptions({ 
-                        speedLimit: 5.00 + (average / 255) * 10,
-                        birdSize: 1.50 + (average / 255) * 1.5
-                    });
-                    animationFrameRef.current = requestAnimationFrame(animateBackground);
-                };
-                animateBackground();
-            };
-            const handleAudioPause = () => {
-                if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-                if (vantaEffectRef.current) vantaEffectRef.current.setOptions({ speedLimit: 5.00, birdSize: 1.50 });
-            };
-
-
             // Render Lock Screen
             if (!isUnlocked && appPin) {
                 return (
@@ -774,6 +808,61 @@
                                 }} className="h-16 rounded-2xl glass-button text-2xl font-light text-white hover:bg-white/10 transition-colors">0</button>
                                 <button onClick={() => setPinInput(pinInput.slice(0,-1))} className="h-16 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-xl text-red-400 transition-colors"><i className="fas fa-delete-left"></i></button>
                             </div>
+                        </div>
+                        {toastMessage && <Toast message={toastMessage} />}
+                    </div>
+                );
+            }
+
+            // Render Sign In / Sign Up Screen
+            if (cloudStatus === 'needs_login') {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4 relative z-10 selection:bg-blue-500/30">
+                        <div ref={vantaRef} className="fixed inset-0 -z-10 bg-[#050505]"></div>
+                        <div className="glass-panel p-8 sm:p-10 max-w-sm w-full text-center relative overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.15)] animate-fadeIn">
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+                            
+                            <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                                <i className="fas fa-cloud text-3xl text-blue-400 drop-shadow-[0_0_10px_rgba(96,165,250,0.8)]"></i>
+                            </div>
+                            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Master Diary Pro</h2>
+                            <p className="text-gray-400 text-sm mb-8 font-medium">
+                                {isSignUp ? "Create your secure cloud vault" : "Access your secure cloud vault"}
+                            </p>
+                            
+                            <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
+                                {isSignUp && (
+                                    <input 
+                                        type="text" placeholder="Full Name" 
+                                        value={name} onChange={e => setName(e.target.value)} 
+                                        className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
+                                        required 
+                                    />
+                                )}
+                                <input 
+                                    type="email" placeholder="Email Address" 
+                                    value={email} onChange={e => setEmail(e.target.value)} 
+                                    className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
+                                    required 
+                                />
+                                <input 
+                                    type="password" placeholder="Password" 
+                                    value={password} onChange={e => setPassword(e.target.value)} 
+                                    className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
+                                    required minLength="6" 
+                                />
+                                <button type="submit" disabled={authLoading} className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-transform hover:-translate-y-1 flex justify-center items-center gap-2 mt-2">
+                                    {authLoading ? <i className="fas fa-spinner fa-spin"></i> : (isSignUp ? "Sign Up" : "Sign In")}
+                                </button>
+                            </form>
+                            
+                            <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-blue-400 hover:text-blue-300 font-medium text-sm transition-colors mb-4 block w-full">
+                                {isSignUp ? "Already have an account? Log In" : "Need an account? Create one"}
+                            </button>
+                            
+                            <button onClick={() => setCloudStatus('offline')} className="w-full py-3 glass-button rounded-xl text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                                Use Offline Mode (Local Only)
+                            </button>
                         </div>
                         {toastMessage && <Toast message={toastMessage} />}
                     </div>
@@ -930,7 +1019,7 @@
                                 )}
                                 
                                 {!focusMode && (
-                                    <div className="flex flex-wrap gap-4 mb-6 bg-black/30 p-5 rounded-3xl border border-white/5 items-center justify-between shadow-inner">
+                                    <div className="flex flex-wrap gap-4 mb-10 bg-black/30 p-5 rounded-3xl border border-white/5 items-center justify-between shadow-inner">
                                         <div className="flex flex-wrap gap-3">
                                             <div className="relative group">
                                                 <select value={currentEntry.notebook || 'Main Diary'} onChange={(e) => setCurrentEntry({ ...currentEntry, notebook: e.target.value })} className="appearance-none pl-12 pr-10 py-3 rounded-2xl glass-input text-sm font-bold text-white outline-none cursor-pointer">
@@ -1109,7 +1198,7 @@
                                     <div 
                                         className="markdown-body relative z-10 print:text-black print-content" 
                                         style={{ fontSize: textSize === 'small' ? '16px' : textSize === 'large' ? '22px' : '18px' }}
-                                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(currentEntry.content || '')) }}
+                                        dangerouslySetInnerHTML={{ __html: window.DOMPurify ? window.DOMPurify.sanitize(window.marked.parse(currentEntry.content || '')) : currentEntry.content }}
                                     />
                                     
                                     {currentEntry.tags && currentEntry.tags.length > 0 && (
@@ -1245,6 +1334,38 @@
                                 </div>
                                 
                                 <div className="space-y-8">
+                                    <div className="glass-panel p-6 rounded-3xl">
+                                        <h3 className="text-xs font-black text-cyan-400 mb-5 uppercase tracking-[0.2em]">Account Status</h3>
+                                        {user ? (
+                                            <div>
+                                                <div className="flex items-center gap-4 mb-5">
+                                                    <div className="w-12 h-12 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
+                                                        <i className="fas fa-user"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-white text-lg">{user.displayName || 'Uday Kumar'}</p>
+                                                        <p className="text-sm text-gray-400">{user.email || 'Cloud Linked User'}</p>
+                                                    </div>
+                                                </div>
+                                                <button onClick={async () => { 
+                                                    if (firebaseLibs) { 
+                                                        await firebaseLibs.authMod.signOut(firebaseLibs.auth); 
+                                                        setShowSettings(false);
+                                                        setCloudStatus('needs_login');
+                                                        showToast('Logged out successfully');
+                                                    } 
+                                                }} className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl font-bold transition-colors">Sign Out Securely</button>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <p className="font-bold text-white text-lg mb-1">Offline Mode</p>
+                                                <p className="text-sm text-gray-400 mb-4">Your data is only stored in this browser.</p>
+                                                <button onClick={() => { setCloudStatus('needs_login'); setShowSettings(false); }} className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-transform hover:-translate-y-1">
+                                                    Connect Cloud Account
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="glass-panel p-6 rounded-3xl">
                                         <h3 className="text-xs font-black text-blue-400 mb-5 uppercase tracking-[0.2em]">Privacy Vault</h3>
                                         <p className="text-sm text-gray-300 mb-5 font-medium">Require a 4-digit PIN to open the diary.</p>
