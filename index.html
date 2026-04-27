@@ -14,14 +14,16 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Global CDNs (Lightning Fast & Zero Error) -->
+    <!-- Global CDNs -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Three.js & Vanta.js Birds -->
+    <!-- Three.js & Multiple Vanta.js Effects -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.birds.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.waves.min.js"></script>
     
     <!-- Markdown Processing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -33,7 +35,6 @@
         ========================================= */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
             background-color: #050505; 
             color: #f1f5f9; 
             overflow-x: hidden;
@@ -60,6 +61,11 @@
             background: rgba(255, 255, 255, 0.15);
             border: 1px solid rgba(255, 255, 255, 0.3);
             transform: translateY(-2px);
+        }
+        .glass-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .glass-input {
@@ -96,7 +102,7 @@
         .markdown-body h3 { font-size: 1.4rem; font-weight: 700; margin: 1.25rem 0 0.5rem; }
         .markdown-body p { margin-bottom: 1.25rem; line-height: 1.8; color: rgba(255,255,255,0.9); }
         .markdown-body ul, .markdown-body ol { margin-left: 1.5rem; margin-bottom: 1.25rem; }
-        .markdown-body li { margin-bottom: 0.5rem; line-height: 1.6; color: rgba(255,255,255,0.9); }
+        .markdown-body li { margin-bottom: 0.5rem; line-height: 1.6; color: rgba(255,255,255,0.9); list-style-type: disc; }
         .markdown-body blockquote { border-left: 4px solid #3b82f6; background: rgba(59, 130, 246, 0.1); padding: 1rem 1.5rem; border-radius: 0 1rem 1rem 0; margin-bottom: 1.25rem; font-style: italic; }
         .markdown-body a { color: #60a5fa; text-decoration: none; }
         .markdown-body a:hover { text-decoration: underline; }
@@ -131,6 +137,10 @@
         .card-color-yellow { border-left-color: #f59e0b; }
         .card-color-pink { border-left-color: #ec4899; }
 
+        .font-modern { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        .font-academic { font-family: 'Merriweather', 'Georgia', serif; }
+        .font-typewriter { font-family: 'Courier New', Courier, monospace; }
+
         @media print {
             .no-print, .vanta-canvas { display: none !important; }
             body { background: white; color: black; }
@@ -139,8 +149,7 @@
         }
     </style>
 </head>
-<body>
-    <!-- HTML Fallback Loader -->
+<body class="font-modern">
     <div id="root">
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #050505; color: #fff; font-family: sans-serif;">
             <svg style="width: 50px; height: 50px; animation: spin 1s linear infinite; color: #3b82f6;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -152,16 +161,15 @@
         </div>
     </div>
     
-    <!-- React & Firebase App -->
     <script type="text/babel" data-type="module">
-        const { useState, useEffect, useRef, useCallback } = React;
+        const { useState, useEffect, useRef, useCallback, useMemo } = React;
         const { createRoot } = ReactDOM;
         
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        // --- Config & Canvas Storage Setup ---
+        // --- Config & Firebase Setup ---
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyCURQx_sKChUpkWCEgX4nAcr81402LDdNw", authDomain: "mydairy-4fb6b.firebaseapp.com",
             databaseURL: "https://mydairy-4fb6b-default-rtdb.firebaseio.com", projectId: "mydairy-4fb6b",
@@ -173,7 +181,77 @@
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // --- Error Boundary (Failsafe) ---
+        // --- Gemini API Helpers ---
+        const callGeminiAPI = async (prompt, systemInstruction = null) => {
+            const apiKey = ""; 
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            if (systemInstruction) payload.systemInstruction = { parts: [{ text: systemInstruction }] };
+
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < 5; i++) {
+                try {
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                } catch (error) {
+                    if (i === 4) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+        };
+
+        const callGeminiTTS = async (textToSpeak) => {
+            const apiKey = "";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: textToSpeak }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } }
+                }
+            };
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < 5; i++) {
+                try {
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+                } catch (error) {
+                    if (i === 4) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+        };
+
+        function pcmToWav(pcmData, sampleRate) {
+            const numChannels = 1; 
+            const bitsPerSample = 16;
+            const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+            const blockAlign = numChannels * (bitsPerSample / 8);
+            const dataSize = pcmData.length;
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
+
+            writeString(view, 0, 'RIFF'); view.setUint32(4, 36 + dataSize, true);
+            writeString(view, 8, 'WAVE'); writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true); view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true); view.setUint16(34, bitsPerSample, true);
+            writeString(view, 36, 'data'); view.setUint32(40, dataSize, true);
+
+            const pcmArray = new Uint8Array(pcmData);
+            new Uint8Array(buffer, 44).set(pcmArray);
+
+            return new Blob([buffer], { type: 'audio/wav' });
+
+            function writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
         class ErrorBoundary extends React.Component {
             constructor(props) { super(props); this.state = { hasError: false, error: null }; }
             static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -189,8 +267,13 @@
             }
         }
 
-        // --- Data Defaults ---
-        const writingPrompts = ["What made you smile today?", "Write about a challenge you overcame recently.", "If today was a color, what would it be and why?", "What are three things you are grateful for right now?", "Describe a dream you had recently."];
+        // --- Content Defaults ---
+        const writingPrompts = ["What made you smile today?", "Write about a challenge you overcame recently.", "If today was a color, what would it be and why?", "What are three things you are grateful for right now?", "Describe a dream you had recently.", "What is a lesson you learned the hard way?"];
+        const dailyQuotes = [
+            "The secret of getting ahead is getting started.", "Write hard and clear about what hurts.", "A journal is your completely unaltered voice.",
+            "The best time to begin was yesterday. The next best time is now.", "Documenting your life is a form of self-love.",
+            "Ideas are elusive, slippery things. Best to keep a pad of paper and a pencil at your bedside.", "You can always edit a bad page. You can’t edit a blank page."
+        ];
         const diaryTemplates = [
             { name: "Gratitude Journal", content: "### Today I am grateful for:\n1. \n2. \n3. \n\n### The best part of my day was:\n\n### How I'll make tomorrow great:\n" },
             { name: "Morning Pages", content: "### Brain Dump (What's on my mind):\n\n### My main intention for today:\n\n### Things I must accomplish:\n- \n- " },
@@ -203,7 +286,7 @@
             useEffect(() => { const t = setTimeout(() => setVisible(false), 2500); return () => clearTimeout(t); }, [message]);
             if (!visible) return null;
             return (
-                <div className="toast-enter fixed bottom-10 left-1/2 transform -translate-x-1/2 z-[99999] glass-panel px-6 py-3 flex items-center gap-3 text-white font-medium shadow-2xl whitespace-nowrap">
+                <div className="toast-enter fixed bottom-10 left-1/2 transform -translate-x-1/2 z-[99999] glass-panel px-6 py-3 flex items-center gap-3 text-white font-medium shadow-2xl whitespace-nowrap border border-blue-500/50">
                     <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><i className="fas fa-check text-blue-400"></i></div>
                     {message}
                 </div>
@@ -235,7 +318,7 @@
                     <div className="glass-panel p-8 max-w-sm w-full text-white relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
                         <h2 className="text-2xl font-bold mb-6">{title}</h2>
-                        <input type="text" value={val} onChange={e => setVal(e.target.value)} placeholder={placeholder} className="w-full p-4 rounded-xl mb-8 glass-input text-lg" autoFocus />
+                        <input type="text" value={val} onChange={e => setVal(e.target.value)} onKeyDown={(e)=> {if(e.key==='Enter'){onConfirm(val); setVal('');}}} placeholder={placeholder} className="w-full p-4 rounded-xl mb-8 glass-input text-lg" autoFocus />
                         <div className="flex gap-3 justify-end">
                             <button onClick={onCancel} className="px-5 py-2.5 rounded-xl glass-button text-sm font-medium">Cancel</button>
                             <button onClick={() => { onConfirm(val); setVal(''); }} className="px-5 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-sm shadow-lg shadow-blue-500/30 transition-transform hover:scale-105">Confirm</button>
@@ -248,7 +331,6 @@
         const DrawingCanvas = ({ onSave, onClose }) => {
             const canvasRef = useRef(null);
             const [isDrawing, setIsDrawing] = useState(false);
-            
             useEffect(() => {
                 const canvas = canvasRef.current;
                 if (canvas) {
@@ -257,9 +339,7 @@
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                 }
             }, []);
-            
             const getCoordinates = (e) => (e.touches && e.touches.length > 0) ? { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY } : { clientX: e.nativeEvent.clientX, clientY: e.nativeEvent.clientY };
-            
             const startDrawing = (e) => {
                 setIsDrawing(true);
                 const ctx = canvasRef.current.getContext('2d');
@@ -267,7 +347,6 @@
                 const { clientX, clientY } = getCoordinates(e);
                 ctx.beginPath(); ctx.moveTo(clientX - rect.left, clientY - rect.top);
             };
-            
             const draw = (e) => {
                 if (!isDrawing) return;
                 const ctx = canvasRef.current.getContext('2d');
@@ -277,18 +356,14 @@
                 ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
                 ctx.stroke();
             };
-            
             const stopDrawing = () => setIsDrawing(false);
-            const handleSave = () => { onSave(canvasRef.current.toDataURL('image/png')); onClose(); };
-            const handleClear = () => canvasRef.current.getContext('2d').clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-            
             return (
                 <div className="fixed inset-0 modal-overlay z-[9000] flex flex-col p-4 sm:p-8">
                     <div className="flex justify-between items-center p-5 glass-panel rounded-b-none border-b-0 shadow-none">
                         <h2 className="text-xl font-bold flex items-center gap-3 text-white"><div className="w-8 h-8 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-400"><i className="fas fa-palette"></i></div> Doodle</h2>
                         <div className="flex gap-2 sm:gap-3">
-                            <button onClick={handleClear} className="w-10 h-10 rounded-full glass-button text-gray-300 hover:text-white"><i className="fas fa-trash"></i></button>
-                            <button onClick={handleSave} className="px-5 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-white font-bold shadow-lg shadow-blue-500/30">Save</button>
+                            <button onClick={() => canvasRef.current.getContext('2d').clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)} className="w-10 h-10 rounded-full glass-button text-gray-300 hover:text-white"><i className="fas fa-trash"></i></button>
+                            <button onClick={() => { onSave(canvasRef.current.toDataURL('image/png')); onClose(); }} className="px-5 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-white font-bold shadow-lg shadow-blue-500/30">Save</button>
                             <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white"><i className="fas fa-times"></i></button>
                         </div>
                     </div>
@@ -298,14 +373,11 @@
         };
 
         const ZenMode = ({ onClose }) => {
-            const [breathingText, setBreathingText] = useState('Breathe In');
+            const [text, setText] = useState('Breathe In');
             useEffect(() => {
-                const texts = ['Breathe In', 'Hold', 'Breathe Out', 'Hold'];
-                let index = 0;
-                const timer = setInterval(() => {
-                    index = (index + 1) % texts.length;
-                    setBreathingText(texts[index]);
-                }, 4000); 
+                const arr = ['Breathe In', 'Hold', 'Breathe Out', 'Hold'];
+                let i = 0;
+                const timer = setInterval(() => { i = (i + 1) % arr.length; setText(arr[i]); }, 4000); 
                 return () => clearInterval(timer);
             }, []);
             return (
@@ -314,13 +386,13 @@
                         <div className="breathing-circle glass-panel mb-16 mx-auto flex items-center justify-center w-24 h-24 rounded-full shadow-[0_0_50px_rgba(74,222,128,0.3)]">
                             <i className="fas fa-leaf text-4xl opacity-50 text-green-400"></i>
                         </div>
-                        <h2 className="text-5xl md:text-6xl font-light mb-12 tracking-[0.2em] drop-shadow-2xl transition-all duration-1000">{breathingText}</h2>
+                        <h2 className="text-5xl md:text-6xl font-light mb-12 tracking-[0.2em] drop-shadow-2xl transition-all duration-1000">{text}</h2>
                         <button onClick={onClose} className="px-10 py-4 glass-button rounded-full font-bold tracking-wider uppercase text-sm hover:bg-white/20 transition-all">End Session</button>
                     </div>
                 </div>
             );
         };
-        
+
         const VoiceRecorder = ({ onSave, onClose, showToast }) => {
             const [recording, setRecording] = useState(false);
             const [audioUrl, setAudioUrl] = useState(null);
@@ -375,7 +447,6 @@
             );
         };
         
-        // Highly Robust YouTube URL Embed Matcher
         const getYouTubeEmbedUrl = (url) => {
             if (!url) return null;
             const regExp = /^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))((\w|-){11})(?:\S+)?$/;
@@ -388,7 +459,6 @@
             // App & Network State
             const [user, setUser] = useState(null);
             
-            // Helper functions for dynamic database paths (Canvas vs Local)
             const getColl = useCallback((colName) => {
                 return typeof __firebase_config !== 'undefined' 
                     ? collection(db, 'artifacts', appId, 'users', user.uid, colName) 
@@ -402,7 +472,7 @@
             }, [user]);
 
             // Auth UI State
-            const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+            const [authMode, setAuthMode] = useState('login'); 
             const [authEmail, setAuthEmail] = useState('');
             const [authPassword, setAuthPassword] = useState('');
             const [authName, setAuthName] = useState('');
@@ -414,19 +484,20 @@
             const showToast = useCallback((msg) => setToastMessage(msg), []);
             const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
             const [viewMode, setViewMode] = useState('grid');
-            const [focusMode, setFocusMode] = useState(false);
+            const [focusMode, setFocusMode] = useState(false); // Editor Focus
+            const [readerFocus, setReaderFocus] = useState(false); // Reader Focus
+            const [isAILoading, setIsAILoading] = useState(false); // Gemini loading state
             
-            // Preferences / Settings from Cloud
+            // Core Preferences / Settings from Cloud
             const [appName, setAppName] = useState("Uday's Pro Diary");
             const [textSize, setTextSize] = useState('normal');
+            const [fontFamily, setFontFamily] = useState('modern'); // modern, academic, typewriter
+            const [bgEffect, setBgEffect] = useState('birds'); // birds, net, waves, none
             const [privacyMode, setPrivacyMode] = useState(false);
+            
             const [appPin, setAppPin] = useState(null);
             const [isUnlocked, setIsUnlocked] = useState(true);
             const [pinInput, setPinInput] = useState('');
-
-            // Feature States
-            const [urlInputMode, setUrlInputMode] = useState(null);
-            const [tempUrl, setTempUrl] = useState('');
 
             // Data State
             const [entries, setEntries] = useState([]);
@@ -435,18 +506,25 @@
             const [currentNotebook, setCurrentNotebook] = useState('All');
             const [currentEntry, setCurrentEntry] = useState(null);
             
-            // Filters
+            // Feature States
+            const [urlInputMode, setUrlInputMode] = useState(null);
+            const [tempUrl, setTempUrl] = useState('');
             const [searchQuery, setSearchQuery] = useState('');
             const [sortBy, setSortBy] = useState('newest');
             const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+            const [syncStatus, setSyncStatus] = useState('saved'); // saving, saved, error
+            const [pomoTime, setPomoTime] = useState(25 * 60);
+            const [pomoActive, setPomoActive] = useState(false);
+            const [pomoVisible, setPomoVisible] = useState(false);
+            const [tagInput, setTagInput] = useState('');
             
             // Modals
             const [showDrawing, setShowDrawing] = useState(false);
-            const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+            const [showVoiceRecorder, setShowVoiceRecorder] = useState(false); 
             const [showTemplateModal, setShowTemplateModal] = useState(false);
             const [showSettings, setShowSettings] = useState(false);
             const [showZenMode, setShowZenMode] = useState(false);
-            const [deleteModal, setDeleteModal] = useState({ isOpen: false, entryId: null });
+            const [deleteModal, setDeleteModal] = useState({ isOpen: false, payload: null, type: '' });
             const [promptModal, setPromptModal] = useState({ isOpen: false });
 
             // Refs
@@ -454,26 +532,65 @@
             const vantaEffectRef = useRef(null);
             const currentEntryRef = useRef(currentEntry);
             const currentRouteRef = useRef(currentRoute);
+            const audioRef = useRef(null);
 
-            // Time keeping
+            // Quote of the day logic
+            const quoteOfTheDay = useMemo(() => dailyQuotes[new Date().getDate() % dailyQuotes.length], []);
+
             useEffect(() => { const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000); return () => clearInterval(timer); }, []);
 
-            // --- VANTA.JS BIRDS SETUP ---
+            // Pomodoro Timer Logic
             useEffect(() => {
-                if (window.VANTA && vantaRef.current && !vantaEffectRef.current && isUnlocked) {
-                    vantaEffectRef.current = window.VANTA.BIRDS({
-                        el: vantaRef.current,
-                        mouseControls: true, touchControls: true, gyroControls: false,
-                        minHeight: 200.00, minWidth: 200.00, scale: 1.00, scaleMobile: 1.00,
-                        backgroundColor: 0x050505, backgroundAlpha: 1.0, color1: 0x3b82f6, color2: 0xa855f7, 
-                        colorMode: "varianceGradient", quantity: 4.00, birdSize: 1.50, wingSpan: 30.00,
-                        speedLimit: 5.00, separation: 50.00, alignment: 20.00, cohesion: 20.00
-                    });
+                let interval;
+                if (pomoActive && pomoTime > 0) {
+                    interval = setInterval(() => setPomoTime(t => t - 1), 1000);
+                } else if (pomoTime === 0 && pomoActive) {
+                    setPomoActive(false);
+                    showToast("Pomodoro complete! Take a 5 minute break.");
                 }
-                return () => { if (vantaEffectRef.current && !isUnlocked) { vantaEffectRef.current.destroy(); vantaEffectRef.current = null; } };
-            }, [isUnlocked, currentRoute]);
+                return () => clearInterval(interval);
+            }, [pomoActive, pomoTime, showToast]);
+            const formatPomo = (s) => `${Math.floor(s / 60)}:${('0' + (s % 60)).slice(-2)}`;
 
-            // --- STRICT FIREBASE AUTH SEQUENCE ---
+            // Pro Keyboard Shortcuts
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                        e.preventDefault();
+                        if (currentRouteRef.current === 'editor' && currentEntryRef.current) {
+                            saveEntryRef.current(currentEntryRef.current);
+                            showToast('Manual Save Triggered');
+                        }
+                    }
+                    if (e.key === 'Escape') {
+                        if (pomoVisible) setPomoVisible(false);
+                        if (showSettings) setShowSettings(false);
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [showSettings, pomoVisible]);
+
+            // Dynamic Background Engine
+            useEffect(() => {
+                if (vantaEffectRef.current) {
+                    vantaEffectRef.current.destroy();
+                    vantaEffectRef.current = null;
+                }
+                if (!window.VANTA || !vantaRef.current || !isUnlocked || bgEffect === 'none') return;
+                
+                let effectConfig = { el: vantaRef.current, mouseControls: true, touchControls: true, gyroControls: false };
+                
+                if (bgEffect === 'birds') {
+                    vantaEffectRef.current = window.VANTA.BIRDS({...effectConfig, backgroundColor: 0x050505, color1: 0x3b82f6, color2: 0xa855f7, colorMode: "varianceGradient", quantity: 4.00, birdSize: 1.50 });
+                } else if (bgEffect === 'net') {
+                    vantaEffectRef.current = window.VANTA.NET({...effectConfig, color: 0x3b82f6, backgroundColor: 0x050505, points: 10, maxDistance: 20, spacing: 18});
+                } else if (bgEffect === 'waves') {
+                    vantaEffectRef.current = window.VANTA.WAVES({...effectConfig, color: 0x0f172a, waveHeight: 20, waveSpeed: 0.5, zoom: 0.8 });
+                }
+            }, [isUnlocked, currentRoute, bgEffect]);
+
+            // --- STRICT FIREBASE AUTH ---
             useEffect(() => {
                 const initAuth = async () => {
                     setAuthLoading(true);
@@ -481,21 +598,14 @@
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(auth, __initial_auth_token);
                         }
-                    } catch (e) {
-                        console.error("Auth failed:", e);
-                    }
+                    } catch (e) { console.error("Auth failed:", e); }
                 };
                 initAuth();
                 
                 const unsubscribe = onAuthStateChanged(auth, (u) => {
                     setUser(u);
                     if (!u) {
-                        // Strict data isolation: Clear local state on logout
-                        setEntries([]);
-                        setTrash([]);
-                        setNotebooks(['Main Diary', 'Travel', 'Work', 'Ideas']);
-                        setAppPin(null);
-                        setIsUnlocked(true);
+                        setEntries([]); setTrash([]); setNotebooks(['Main Diary', 'Travel', 'Work', 'Ideas']); setAppPin(null); setIsUnlocked(true);
                     }
                     setAuthLoading(false);
                 });
@@ -506,89 +616,70 @@
             useEffect(() => {
                 if (!user) return;
                 
-                // Fetch user preferences
                 const settingsUnsub = onSnapshot(getDocument('settings', 'preferences'), (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         if (data.appName) setAppName(data.appName);
                         if (data.textSize) setTextSize(data.textSize);
+                        if (data.fontFamily) setFontFamily(data.fontFamily);
+                        if (data.bgEffect) setBgEffect(data.bgEffect);
                         if (data.privacyMode !== undefined) setPrivacyMode(data.privacyMode);
                         if (data.notebooks) setNotebooks(data.notebooks);
-                        if (data.appPin) {
-                            setAppPin(data.appPin);
-                            setIsUnlocked(false);
-                        } else {
-                            setAppPin(null);
-                            setIsUnlocked(true);
-                        }
+                        if (data.appPin) { setAppPin(data.appPin); setIsUnlocked(false); } 
+                        else { setAppPin(null); setIsUnlocked(true); }
                     }
                 }, (err) => console.error(err));
 
-                // Fetch Diary Entries
-                const entriesUnsub = onSnapshot(
-                    getColl('entries'), 
-                    (snap) => {
-                        const data = []; snap.forEach(d => data.push(d.data()));
-                        
-                        // Smart Welcome Note for Brand New Accounts
-                        if (snap.empty && data.length === 0) {
-                            const initialEntry = { 
-                                id: Date.now(), title: 'Welcome to Uday\'s Diary', 
-                                content: 'Welcome to **Uday\'s Master Diary Pro**!\n\nYour account is now 100% private and secure. All data on this account is strictly isolated.\n\nEnjoy writing, Uday!', 
-                                date: new Date().toISOString(), mood: 'happy', weather: 'sunny', isFavorite: true, color: 'blue', 
-                                location: 'Hyderabad, Telangana', tags: ['welcome'], notebook: 'Main Diary',
-                                backgroundImage: null, youtubeUrl: null
-                            };
-                            setEntries([initialEntry]);
-                            setDoc(getDocument('entries', initialEntry.id.toString()), initialEntry).catch(e => console.error(e));
-                        } else {
-                            setEntries(data); 
-                        }
-                    },
-                    (error) => console.error("Entries Sync Error", error)
-                );
+                const entriesUnsub = onSnapshot(getColl('entries'), (snap) => {
+                    const data = []; snap.forEach(d => pushOrUpdate(data, d.data()));
+                    if (snap.empty && data.length === 0) {
+                        const initialEntry = { 
+                            id: Date.now(), title: 'Welcome to Uday\'s Diary', 
+                            content: 'Welcome to **Uday\'s Master Diary Pro**!\n\nYour account is now 100% private and secure. All data on this account is strictly isolated.\n\nEnjoy writing, Uday!', 
+                            date: new Date().toISOString(), mood: 'happy', weather: 'sunny', isFavorite: true, isPinned: true, color: 'blue', 
+                            location: 'Hyderabad, Telangana', tags: ['welcome'], notebook: 'Main Diary', backgroundImage: null, youtubeUrl: null
+                        };
+                        setEntries([initialEntry]);
+                        setDoc(getDocument('entries', initialEntry.id.toString()), initialEntry).catch(e => console.error(e));
+                    } else { setEntries(data); }
+                });
                 
-                // Fetch Trash
-                const trashUnsub = onSnapshot(
-                    getColl('trash'), 
-                    (snap) => {
-                        const data = []; snap.forEach(d => data.push(d.data()));
-                        setTrash(data);
-                    },
-                    (error) => console.error("Trash Sync Error", error)
-                );
+                const trashUnsub = onSnapshot(getColl('trash'), (snap) => {
+                    const data = []; snap.forEach(d => pushOrUpdate(data, d.data())); setTrash(data);
+                });
+
+                function pushOrUpdate(arr, item) {
+                    const idx = arr.findIndex(i => String(i.id) === String(item.id));
+                    if (idx > -1) arr[idx] = item; else arr.push(item);
+                }
                 
                 return () => { entriesUnsub(); trashUnsub(); settingsUnsub(); };
             }, [user, getColl, getDocument]);
 
-            // Generic Setting Updater
             const updateSetting = async (key, value) => {
                 if (!user) return;
-                try {
-                    await setDoc(getDocument('settings', 'preferences'), { [key]: value }, { merge: true });
-                } catch(e) { 
-                    console.error("Failed to update setting:", e); 
-                    showToast("Save Error: Check Firestore Rules");
-                }
+                try { await setDoc(getDocument('settings', 'preferences'), { [key]: value }, { merge: true }); } 
+                catch(e) { showToast("Save Error: Check Firestore Rules"); }
             };
 
-            // Auto-Save Management
+            // Auto-Save Status
             useEffect(() => { currentEntryRef.current = currentEntry; currentRouteRef.current = currentRoute; }, [currentEntry, currentRoute]);
-            
             const saveEntryRef = useRef(null);
             
             const saveEntry = useCallback(async (entry, isSilent = false) => {
                 if (!user) return;
+                setSyncStatus('saving');
                 setEntries(prev => {
-                    const updated = prev.map(e => e.id === entry.id ? entry : e);
-                    if (!prev.find(e => e.id === entry.id)) updated.push(entry);
+                    const updated = prev.map(e => String(e.id) === String(entry.id) ? entry : e);
+                    if (!prev.find(e => String(e.id) === String(entry.id))) updated.push(entry);
                     return updated;
                 });
                 try { 
                     await setDoc(getDocument('entries', entry.id.toString()), entry); 
+                    setSyncStatus('saved');
                     if (!isSilent) showToast('Memory saved securely');
                 } catch(e) { 
-                    console.error(e); 
+                    setSyncStatus('error');
                     if (!isSilent) showToast('Save Error: Check Firestore Rules');
                 }
             }, [user, getDocument, showToast]);
@@ -607,9 +698,16 @@
             // Data Operations
             const deleteEntry = async (entryId) => {
                 if (!user) return;
-                const deletedItem = entries.find(e => e.id === entryId); if (!deletedItem) return;
+                const deletedItem = entries.find(e => String(e.id) === String(entryId)); 
+                if (!deletedItem) {
+                    showToast('Draft discarded');
+                    return;
+                }
                 const trashedItem = { ...deletedItem, deletedAt: new Date().toISOString() };
                 
+                setEntries(prev => prev.filter(e => String(e.id) !== String(entryId)));
+                setTrash(prev => [...prev, trashedItem]);
+
                 try { 
                     await setDoc(getDocument('trash', entryId.toString()), trashedItem); 
                     await deleteDoc(getDocument('entries', entryId.toString())); 
@@ -619,30 +717,65 @@
             
             const restoreEntry = async (entryId) => {
                 if (!user) return;
-                const itemToRestore = trash.find(e => e.id === entryId); if (!itemToRestore) return;
+                const itemToRestore = trash.find(e => String(e.id) === String(entryId)); 
+                if (!itemToRestore) return;
                 const { deletedAt, ...entry } = itemToRestore;
                 
+                setTrash(prev => prev.filter(e => String(e.id) !== String(entryId)));
+                setEntries(prev => [...prev, entry]);
+
                 try { 
                     await setDoc(getDocument('entries', entryId.toString()), entry); 
                     await deleteDoc(getDocument('trash', entryId.toString())); 
                     showToast('Entry restored');
-                } catch(e) { console.error(e); showToast('Restore failed.'); }
+                } catch(e) { showToast('Restore failed.'); }
             };
             
             const permanentlyDeleteEntry = async (entryId) => {
                 if (!user) return;
+                setTrash(prev => prev.filter(t => String(t.id) !== String(entryId)));
                 try { await deleteDoc(getDocument('trash', entryId.toString())); showToast('Permanently deleted'); } catch(e) { showToast('Delete failed.'); }
             };
             
             const emptyTrash = async () => {
                 if (!user) return;
                 const currentTrash = [...trash];
+                setTrash([]);
                 try { 
-                    for (const item of currentTrash) {
-                        await deleteDoc(getDocument('trash', item.id.toString())); 
-                    }
+                    for (const item of currentTrash) { await deleteDoc(getDocument('trash', item.id.toString())); }
                     showToast('Trash emptied');
-                } catch(e) { console.error(e); showToast('Empty trash failed.'); }
+                } catch(e) { showToast('Empty trash failed.'); }
+            };
+
+            const deleteNotebook = async (nbName) => {
+                if (nbName === 'Main Diary') return; 
+                const newNbs = notebooks.filter(n => n !== nbName);
+                setNotebooks(newNbs);
+                updateSetting('notebooks', newNbs);
+                const toUpdate = entries.filter(e => e.notebook === nbName);
+                for (const entry of toUpdate) {
+                    const migrated = {...entry, notebook: 'Main Diary'};
+                    await saveEntry(migrated, true);
+                }
+                if (currentNotebook === nbName) setCurrentNotebook('All');
+                showToast(`Deleted notebook: ${nbName}`);
+            };
+
+            const clearAllData = async () => {
+                if (!user) return;
+                const currentEntries = [...entries];
+                const currentTrash = [...trash];
+                
+                setEntries([]); 
+                setTrash([]);
+                
+                try {
+                    for (const e of currentEntries) await deleteDoc(getDocument('entries', e.id.toString()));
+                    for (const t of currentTrash) await deleteDoc(getDocument('trash', t.id.toString()));
+                    showToast("Factory Reset Complete. All data wiped.");
+                } catch (e) {
+                    showToast("Error wiping data.");
+                }
             };
 
             const exportEntries = () => {
@@ -664,7 +797,7 @@
                                 if (Array.isArray(imported)) {
                                     showToast('Importing to cloud...');
                                     for (const item of imported) {
-                                        if (!entries.find(ex => ex.id === item.id)) {
+                                        if (!entries.find(ex => String(ex.id) === String(item.id))) {
                                             await setDoc(getDocument('entries', item.id.toString()), item);
                                         }
                                     }
@@ -676,24 +809,122 @@
                 }; input.click();
             };
 
-            // Filters & Derived State
             const filteredEntries = entries
                 .filter(e => (currentNotebook === 'All' || e.notebook === currentNotebook))
                 .filter(e => { const q = searchQuery.toLowerCase(); return (e.title || '').toLowerCase().includes(q) || (e.content || '').toLowerCase().includes(q) || (e.tags && e.tags.some(t => t.toLowerCase().includes(q))); })
                 .filter(e => !showFavoritesOnly || e.isFavorite)
                 .sort((a, b) => {
+                    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1; 
                     if (sortBy === 'newest') return new Date(b.date) - new Date(a.date);
                     if (sortBy === 'oldest') return new Date(a.date) - new Date(b.date);
-                    if (sortBy === 'longest') return (b.content || '').length - (a.content || '').length;
-                    if (sortBy === 'shortest') return (a.content || '').length - (b.content || '').length;
                     return 0;
                 });
 
-            const today = new Date();
-            const onThisDayEntries = entries.filter(e => { const ed = new Date(e.date); return ed.getDate() === today.getDate() && ed.getMonth() === today.getMonth() && ed.getFullYear() !== today.getFullYear(); });
-            const dayStreak = 1; // Compute from dates dynamically if desired
+            // --- GEMINI API LLM FEATURES ---
+            const handleAutoTitle = async () => {
+                if (!currentEntry.content) return showToast("Write something first!");
+                setIsAILoading(true);
+                showToast("AI is thinking of a title...");
+                try {
+                    const prompt = `Generate a short, catchy, and meaningful title (max 6 words) for the following diary entry. Output ONLY the title text, no quotes or prefixes.\n\nEntry: ${currentEntry.content}`;
+                    const title = await callGeminiAPI(prompt);
+                    if (title) setCurrentEntry(prev => ({ ...prev, title: title.trim().replace(/^"|"$/g, '') }));
+                    showToast("Title generated ✨");
+                } catch (e) {
+                    showToast("Failed to generate title.");
+                } finally { setIsAILoading(false); }
+            };
 
-            // Editor Features
+            const handleAutoTags = async () => {
+                if (!currentEntry.content) return showToast("Write something first!");
+                setIsAILoading(true);
+                showToast("AI is analyzing tags...");
+                try {
+                    const prompt = `Analyze this diary entry and generate 3-5 relevant, single-word tags. Output ONLY a comma-separated list of tags, lowercase, no hash symbols.\n\nEntry: ${currentEntry.content}`;
+                    const tagsStr = await callGeminiAPI(prompt);
+                    if (tagsStr) {
+                        const newTags = tagsStr.split(',').map(t => t.trim().toLowerCase().replace(/[^a-z0-9]/g, '')).filter(t => t);
+                        const mergedTags = [...new Set([...(currentEntry.tags || []), ...newTags])];
+                        setCurrentEntry(prev => ({ ...prev, tags: mergedTags }));
+                    }
+                    showToast("Tags added ✨");
+                } catch (e) {
+                    showToast("Failed to generate tags.");
+                } finally { setIsAILoading(false); }
+            };
+
+            const handleAIReflection = async () => {
+                if (!currentEntry.content) return showToast("Write something first!");
+                setIsAILoading(true);
+                showToast("AI is reflecting on your entry...");
+                try {
+                    const sys = "You are a supportive, empathetic journaling coach. Read the diary entry and write a short, meaningful reflection (2-3 sentences) acknowledging the user's feelings and offering a gentle, encouraging thought.";
+                    const reflection = await callGeminiAPI(`Entry:\n${currentEntry.content}`, sys);
+                    if (reflection) {
+                        const newContent = currentEntry.content + `\n\n---\n**✨ AI Coach Reflection:**\n*${reflection.trim()}*`;
+                        setCurrentEntry(prev => ({ ...prev, content: newContent }));
+                    }
+                    showToast("Reflection added ✨");
+                } catch (e) {
+                    showToast("Failed to generate reflection.");
+                } finally { setIsAILoading(false); }
+            };
+
+            const handlePolishWriting = async () => {
+                if (!currentEntry.content) return showToast("Write something first!");
+                setIsAILoading(true);
+                showToast("AI is polishing your writing...");
+                try {
+                    const prompt = `Rewrite the following diary entry to improve grammar, flow, and clarity while strictly maintaining the original tone, emotional weight, and meaning. Output ONLY the rewritten text, preserving markdown formatting if present.\n\nEntry:\n${currentEntry.content}`;
+                    const polished = await callGeminiAPI(prompt);
+                    if (polished) setCurrentEntry(prev => ({ ...prev, content: polished.trim() }));
+                    showToast("Writing polished ✨");
+                } catch (e) {
+                    showToast("Failed to polish writing.");
+                } finally { setIsAILoading(false); }
+            };
+
+            const handleGeminiTTS = async () => {
+                if (!currentEntry.content && !currentEntry.title) return showToast("Nothing to read.");
+                if (isAILoading) return;
+                setIsAILoading(true);
+                showToast("Generating realistic voice ✨...");
+                try {
+                    const text = `${currentEntry.title || 'Untitled'}. \n\n ${currentEntry.content || ''}`.substring(0, 1200); 
+                    const inlineData = await callGeminiTTS(text);
+                    if (inlineData) {
+                        const base64Data = inlineData.data;
+                        const binaryString = window.atob(base64Data);
+                        const len = binaryString.length;
+                        const bytes = new Uint8Array(len);
+                        for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+                        
+                        const mimeMatch = inlineData.mimeType.match(/rate=(\d+)/);
+                        const sampleRate = mimeMatch ? parseInt(mimeMatch[1], 10) : 24000;
+                        
+                        const wavBlob = pcmToWav(bytes.buffer, sampleRate);
+                        const audioUrl = URL.createObjectURL(wavBlob);
+                        if (audioRef.current) {
+                            audioRef.current.pause();
+                            URL.revokeObjectURL(audioRef.current.src);
+                        }
+                        audioRef.current = new Audio(audioUrl);
+                        audioRef.current.play();
+                        showToast("Playing AI Voice ✨");
+                    } else {
+                        throw new Error("No data");
+                    }
+                } catch(e) {
+                    console.error(e);
+                    showToast("TTS failed. Falling back to native.");
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                        window.speechSynthesis.speak(new SpeechSynthesisUtterance(currentEntry.content || currentEntry.title));
+                    }
+                } finally { setIsAILoading(false); }
+            };
+            // ------------------------------------
+
             const insertMarkdown = (prefix, suffix = '') => {
                 const textarea = document.getElementById('diary-textarea'); if (!textarea) return;
                 const start = textarea.selectionStart; const end = textarea.selectionEnd;
@@ -728,12 +959,9 @@
             const insertTemplate = (template) => { setCurrentEntry(prev => ({ ...prev, content: (prev.content ? prev.content + '\n\n' : '') + template.content, title: prev.title || template.name })); setShowTemplateModal(false); showToast(`Applied ${template.name}`); };
             const generatePrompt = () => { setCurrentEntry(prev => ({ ...prev, content: `**Prompt:** *${writingPrompts[Math.floor(Math.random() * writingPrompts.length)]}*\n\n` + (prev.content || '') })); showToast('Inspiration added!'); };
 
-            const handleTTS = () => {
-                if (!('speechSynthesis' in window)) { showToast('Text-to-speech not supported.'); return; }
-                window.speechSynthesis.cancel();
-                const textToSpeak = (currentEntry.title || 'Untitled') + ". " + (currentEntry.content || '');
-                window.speechSynthesis.speak(new SpeechSynthesisUtterance(textToSpeak));
-                showToast('Playing audio...');
+            const handleCopyEntry = () => {
+                const text = `# ${currentEntry.title || 'Untitled'}\n\n*Date: ${new Date(currentEntry.date).toLocaleDateString()}*\n\n${currentEntry.content}`;
+                navigator.clipboard.writeText(text).then(()=>showToast('Copied to clipboard!')).catch(()=>showToast('Failed to copy'));
             };
 
             const handleExportMD = () => {
@@ -757,135 +985,61 @@
                         showToast('Welcome back!');
                     }
                 } catch (err) {
-                    if (err.code === 'auth/operation-not-allowed') {
-                        showToast('Email Auth is disabled in this Firebase project. Use Guest Login instead.');
-                    } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-                        showToast('Invalid email or password.');
-                    } else if (err.code === 'auth/email-already-in-use') {
-                        showToast('Email already in use. Please sign in.');
-                    } else {
-                        showToast(err.message.replace('Firebase: ', ''));
-                    }
-                } finally {
-                    setAuthLoading(false);
-                }
+                    if (err.code === 'auth/operation-not-allowed') showToast('Email Auth is disabled. Use Guest Login instead.');
+                    else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') showToast('Invalid email or password.');
+                    else if (err.code === 'auth/email-already-in-use') showToast('Email already in use. Please sign in.');
+                    else showToast(err.message.replace('Firebase: ', ''));
+                } finally { setAuthLoading(false); }
             };
 
             const handleGuestLogin = async () => {
                 setAuthLoading(true);
-                try {
-                    await signInAnonymously(auth);
-                    showToast('Logged in as Guest!');
-                } catch (err) {
-                    showToast('Guest login failed: ' + err.message);
-                    setAuthLoading(false);
-                }
+                try { await signInAnonymously(auth); showToast('Logged in as Guest!'); } 
+                catch (err) { showToast('Guest login failed: ' + err.message); setAuthLoading(false); }
             };
 
-            // Render Loading Screen
-            if (authLoading) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-[#050505]">
-                        <i className="fas fa-circle-notch fa-spin text-4xl text-blue-500"></i>
-                    </div>
-                );
-            }
+            if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-[#050505]"><i className="fas fa-circle-notch fa-spin text-4xl text-blue-500"></i></div>;
 
-            // Render Sign In / Sign Up Screen
             if (!user) {
                 return (
                     <div className="min-h-screen flex items-center justify-center p-4 relative z-10 selection:bg-blue-500/30">
-                        <div ref={vantaRef} className="fixed inset-0 -z-10 bg-[#050505]"></div>
+                        <div className="fixed inset-0 -z-10 bg-[#050505]"></div>
                         <div className="glass-panel p-8 sm:p-10 max-w-sm w-full text-center relative overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.15)] animate-fadeIn">
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
-                            
-                            <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                                <i className="fas fa-lock text-3xl text-blue-400 drop-shadow-[0_0_10px_rgba(96,165,250,0.8)]"></i>
-                            </div>
+                            <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner"><i className="fas fa-lock text-3xl text-blue-400 drop-shadow-[0_0_10px_rgba(96,165,250,0.8)]"></i></div>
                             <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Master Diary Pro</h2>
-                            <p className="text-gray-400 text-sm mb-8 font-medium">
-                                {authMode === 'signup' ? "Create your secure vault" : "Access your secure vault"}
-                            </p>
+                            <p className="text-gray-400 text-sm mb-8 font-medium">{authMode === 'signup' ? "Create your secure vault" : "Access your secure vault"}</p>
                             
                             <form onSubmit={handleAuthSubmit} className="space-y-4 mb-6">
-                                {authMode === 'signup' && (
-                                    <input 
-                                        type="text" placeholder="Full Name (e.g. Uday Kumar)" 
-                                        value={authName} onChange={e => setAuthName(e.target.value)} 
-                                        className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
-                                        required 
-                                    />
-                                )}
-                                <input 
-                                    type="email" placeholder="Email Address" 
-                                    value={authEmail} onChange={e => setAuthEmail(e.target.value)} 
-                                    className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
-                                    required 
-                                />
-                                <input 
-                                    type="password" placeholder="Password" 
-                                    value={authPassword} onChange={e => setAuthPassword(e.target.value)} 
-                                    className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
-                                    required minLength="6" 
-                                />
-                                <button type="submit" disabled={authLoading} className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-transform hover:-translate-y-1 flex justify-center items-center gap-2 mt-2">
-                                    {authMode === 'signup' ? "Sign Up" : "Sign In"}
-                                </button>
-
-                                <div className="relative flex py-2 items-center">
-                                    <div className="flex-grow border-t border-white/10"></div>
-                                    <span className="flex-shrink-0 mx-4 text-gray-500 text-xs font-bold uppercase tracking-wider">Or</span>
-                                    <div className="flex-grow border-t border-white/10"></div>
-                                </div>
-                                
-                                <button type="button" onClick={handleGuestLogin} disabled={authLoading} className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-bold transition-colors flex justify-center items-center gap-2">
-                                    <i className="fas fa-user-astronaut"></i> Continue as Guest
-                                </button>
+                                {authMode === 'signup' && <input type="text" placeholder="Full Name (e.g. Uday Kumar)" value={authName} onChange={e => setAuthName(e.target.value)} className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" required />}
+                                <input type="email" placeholder="Email Address" value={authEmail} onChange={e => setAuthEmail(e.target.value)} className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" required />
+                                <input type="password" placeholder="Password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" required minLength="6" />
+                                <button type="submit" disabled={authLoading} className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-transform hover:-translate-y-1 flex justify-center items-center gap-2 mt-2">{authMode === 'signup' ? "Sign Up" : "Sign In"}</button>
+                                <div className="relative flex py-2 items-center"><div className="flex-grow border-t border-white/10"></div><span className="flex-shrink-0 mx-4 text-gray-500 text-xs font-bold uppercase tracking-wider">Or</span><div className="flex-grow border-t border-white/10"></div></div>
+                                <button type="button" onClick={handleGuestLogin} disabled={authLoading} className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-bold transition-colors flex justify-center items-center gap-2"><i className="fas fa-user-astronaut"></i> Continue as Guest</button>
                             </form>
-                            
-                            <button type="button" onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="text-blue-400 hover:text-blue-300 font-medium text-sm transition-colors block w-full">
-                                {authMode === 'login' ? "Need an account? Create one" : "Already have an account? Log In"}
-                            </button>
+                            <button type="button" onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="text-blue-400 hover:text-blue-300 font-medium text-sm transition-colors block w-full">{authMode === 'login' ? "Need an account? Create one" : "Already have an account? Log In"}</button>
                         </div>
                         {toastMessage && <Toast message={toastMessage} />}
                     </div>
                 );
             }
 
-            // Render Lock Screen
             if (!isUnlocked && appPin) {
                 return (
                     <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
                         <div ref={vantaRef} className="fixed inset-0 -z-10 bg-[#050505]"></div>
                         <div className="glass-panel p-10 max-w-sm w-full text-center relative overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.15)]">
-                            <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                                <i className="fas fa-fingerprint text-3xl text-blue-400 drop-shadow-[0_0_10px_rgba(96,165,250,0.8)]"></i>
-                            </div>
+                            <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner"><i className="fas fa-fingerprint text-3xl text-blue-400 drop-shadow-[0_0_10px_rgba(96,165,250,0.8)]"></i></div>
                             <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Privacy Vault</h2>
                             <p className="text-gray-400 text-sm mb-8 font-medium">Verify identity to access diary</p>
-                            
-                            <div className="flex justify-center gap-4 mb-10">
-                                {[0,1,2,3].map(i => (
-                                    <div key={i} className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${pinInput.length > i ? 'bg-blue-400 shadow-[0_0_15px_rgba(96,165,250,1)] scale-110' : 'bg-white/10 border border-white/20'}`}></div>
-                                ))}
-                            </div>
-                            
+                            <div className="flex justify-center gap-4 mb-10">{[0,1,2,3].map(i => <div key={i} className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${pinInput.length > i ? 'bg-blue-400 shadow-[0_0_15px_rgba(96,165,250,1)] scale-110' : 'bg-white/10 border border-white/20'}`}></div>)}</div>
                             <div className="grid grid-cols-3 gap-3 mb-4">
                                 {[1,2,3,4,5,6,7,8,9].map(num => (
-                                    <button key={num} onClick={() => {
-                                        if (pinInput.length < 4) {
-                                            const newPin = pinInput + num; setPinInput(newPin);
-                                            if (newPin.length === 4) { if (newPin === appPin) setTimeout(() => setIsUnlocked(true), 200); else setTimeout(() => { showToast('Access Denied'); setPinInput(''); }, 200); }
-                                        }
-                                    }} className="h-16 rounded-2xl glass-button text-2xl font-light text-white hover:bg-white/10 transition-colors">{num}</button>
+                                    <button key={num} onClick={() => { if (pinInput.length < 4) { const newPin = pinInput + num; setPinInput(newPin); if (newPin.length === 4) { if (newPin === appPin) setTimeout(() => setIsUnlocked(true), 200); else setTimeout(() => { showToast('Access Denied'); setPinInput(''); }, 200); } } }} className="h-16 rounded-2xl glass-button text-2xl font-light text-white hover:bg-white/10 transition-colors">{num}</button>
                                 ))}
                                 <div></div>
-                                <button onClick={() => {
-                                    if (pinInput.length < 4) {
-                                        const newPin = pinInput + '0'; setPinInput(newPin);
-                                        if (newPin.length === 4) { if (newPin === appPin) setTimeout(() => setIsUnlocked(true), 200); else setTimeout(() => { showToast('Access Denied'); setPinInput(''); }, 200); }
-                                    }
-                                }} className="h-16 rounded-2xl glass-button text-2xl font-light text-white hover:bg-white/10 transition-colors">0</button>
+                                <button onClick={() => { if (pinInput.length < 4) { const newPin = pinInput + '0'; setPinInput(newPin); if (newPin.length === 4) { if (newPin === appPin) setTimeout(() => setIsUnlocked(true), 200); else setTimeout(() => { showToast('Access Denied'); setPinInput(''); }, 200); } } }} className="h-16 rounded-2xl glass-button text-2xl font-light text-white hover:bg-white/10 transition-colors">0</button>
                                 <button onClick={() => setPinInput(pinInput.slice(0,-1))} className="h-16 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-xl text-red-400 transition-colors"><i className="fas fa-delete-left"></i></button>
                             </div>
                         </div>
@@ -895,7 +1049,7 @@
             }
 
             return (
-                <div className="relative z-10 min-h-screen text-white font-sans selection:bg-blue-500/40">
+                <div className={`relative z-10 min-h-screen text-white selection:bg-blue-500/40 font-${fontFamily}`}>
                     <div ref={vantaRef} className="fixed inset-0 -z-10 bg-[#050505]"></div>
                     
                     {/* --- HEADER --- */}
@@ -904,34 +1058,30 @@
                             <div className="max-w-7xl mx-auto px-4 py-5">
                                 <div className="flex items-center justify-between mb-6">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)] border border-white/20">
-                                            <i className="fas fa-dove text-xl text-white"></i>
-                                        </div>
-                                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 drop-shadow-sm truncate max-w-[200px] sm:max-w-md">{appName}</h1>
+                                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)] border border-white/20"><i className="fas fa-dove text-xl text-white"></i></div>
+                                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 drop-shadow-sm truncate max-w-[200px] sm:max-w-md font-modern">{appName}</h1>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <div className="hidden sm:flex text-sm font-bold glass-panel px-4 py-2 text-white items-center gap-2">
-                                            <i className="far fa-clock text-blue-400"></i> {currentTime}
-                                        </div>
-                                        <button onClick={() => setShowSettings(true)} className="w-12 h-12 glass-button rounded-full flex items-center justify-center"><i className="fas fa-sliders-h text-lg"></i></button>
+                                        <div className="hidden sm:flex text-sm font-bold glass-panel px-4 py-2 text-white items-center gap-2"><i className="far fa-clock text-blue-400"></i> {currentTime}</div>
+                                        <button onClick={() => setShowSettings(true)} className="w-12 h-12 glass-button rounded-full flex items-center justify-center hover:rotate-90 transition-transform"><i className="fas fa-sliders-h text-lg"></i></button>
                                     </div>
                                 </div>
                                 
                                 <div className="flex flex-col lg:flex-row gap-5 justify-between items-center">
-                                    <div className="glass-panel p-1.5 flex gap-2 w-full lg:w-auto overflow-x-auto hide-scrollbar">
+                                    <div className="glass-panel p-1.5 flex gap-2 w-full lg:w-auto overflow-x-auto hide-scrollbar font-modern">
                                         <button onClick={() => setCurrentNotebook('All')} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${currentNotebook === 'All' ? 'bg-white/20 shadow-md text-white' : 'hover:bg-white/5 text-gray-400'}`}>Everything</button>
                                         {notebooks.map(nb => <button key={nb} onClick={() => setCurrentNotebook(nb)} className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${currentNotebook === nb ? 'bg-white/20 shadow-md text-white' : 'hover:bg-white/5 text-gray-400'}`}>{nb}</button>)}
                                     </div>
                                     <div className="flex w-full lg:w-auto gap-3">
-                                        <div className="relative flex-grow lg:w-72">
+                                        <div className="relative flex-grow lg:w-72 font-modern">
                                             <i className="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
                                             <input type="text" placeholder="Search memories..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-2xl glass-input text-sm font-medium" />
                                         </div>
-                                        <button onClick={() => { setCurrentEntry({ id: Date.now(), title: '', content: '', date: new Date().toISOString(), mood: 'neutral', weather: 'sunny', isFavorite: false, color: 'blue', location: 'Hyderabad, TS', tags: [], notebook: currentNotebook === 'All' ? 'Main Diary' : currentNotebook }); setCurrentRoute('editor'); }} className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white rounded-2xl shadow-lg shadow-blue-500/25 font-bold transition-transform hover:-translate-y-1 flex items-center gap-2 whitespace-nowrap"><i className="fas fa-pen-nib"></i> <span className="hidden sm:inline">Write</span></button>
+                                        <button onClick={() => { setCurrentEntry({ id: Date.now(), title: '', content: '', date: new Date().toISOString(), mood: 'neutral', weather: '', isFavorite: false, isPinned: false, color: 'blue', location: '', tags: [], notebook: currentNotebook === 'All' ? 'Main Diary' : currentNotebook }); setCurrentRoute('editor'); }} className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white rounded-2xl shadow-lg shadow-blue-500/25 font-bold transition-transform hover:-translate-y-1 flex items-center gap-2 whitespace-nowrap font-modern"><i className="fas fa-pen-nib"></i> <span className="hidden sm:inline">Write</span></button>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between mt-5 flex-wrap gap-4 border-t border-white/10 pt-5">
+                                <div className="flex items-center justify-between mt-5 flex-wrap gap-4 border-t border-white/10 pt-5 font-modern">
                                     <div className="flex gap-2 glass-panel p-1 rounded-2xl">
                                         <button onClick={() => setViewMode('grid')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${viewMode === 'grid' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}><i className="fas fa-border-all"></i></button>
                                         <button onClick={() => setViewMode('list')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}><i className="fas fa-list-ul"></i></button>
@@ -952,28 +1102,22 @@
 
                     {/* --- DASHBOARD CONTENT --- */}
                     {currentRoute === 'dashboard' && (
-                        <div className="max-w-7xl mx-auto px-4 py-10 pb-20">
-                            {onThisDayEntries.length > 0 && searchQuery === '' && (
-                                <div className="mb-12 glass-panel p-8 relative overflow-hidden border-l-4 border-l-blue-500">
-                                    <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full"></div>
-                                    <h3 className="text-xl font-extrabold text-white mb-6 flex items-center gap-3"><i className="fas fa-clock-rotate-left text-blue-400 text-2xl"></i> On This Day</h3>
-                                    <div className="flex gap-5 overflow-x-auto hide-scrollbar pb-2">
-                                        {onThisDayEntries.map(e => (
-                                            <div key={e.id} onClick={() => { setCurrentEntry(e); setCurrentRoute('reader'); }} className="min-w-[280px] bg-white/5 border border-white/10 rounded-2xl p-5 cursor-pointer card-hover-effect">
-                                                <p className="text-sm font-bold text-blue-400 mb-2">{new Date(e.date).getFullYear()}</p>
-                                                <h4 className="font-bold text-lg text-white truncate">{e.title}</h4>
-                                                <p className="text-sm text-gray-400 mt-2 line-clamp-2">{e.content}</p>
-                                            </div>
-                                        ))}
+                        <div className="max-w-7xl mx-auto px-4 py-8 pb-20">
+                            
+                            {/* Dashboard Top Widgets */}
+                            {searchQuery === '' && (
+                                <div className="mb-10 font-modern">
+                                    <div className="glass-panel p-6 flex flex-col justify-center relative overflow-hidden border-l-4 border-l-indigo-500 group">
+                                        <i className="fas fa-quote-left absolute right-6 top-6 text-6xl text-white/5 group-hover:scale-110 transition-transform"></i>
+                                        <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Daily Wisdom</p>
+                                        <p className="text-xl sm:text-2xl font-serif text-white italic leading-snug">"{quoteOfTheDay}"</p>
                                     </div>
                                 </div>
                             )}
 
                             {filteredEntries.length === 0 ? (
                                 <div className="text-center py-32 glass-panel flex flex-col items-center justify-center">
-                                    <div className="w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-6 shadow-inner">
-                                        <i className="fas fa-feather-pointed text-4xl text-gray-500"></i>
-                                    </div>
+                                    <div className="w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-6 shadow-inner"><i className="fas fa-feather-pointed text-4xl text-gray-500"></i></div>
                                     <h3 className="text-3xl font-bold text-white mb-3 tracking-tight">Blank Canvas</h3>
                                     <p className="text-gray-400 max-w-md text-lg">Your thoughts are waiting to be written. Start a new entry to capture the moment.</p>
                                 </div>
@@ -988,16 +1132,19 @@
                                                 <div className="relative z-10 w-full h-full flex flex-col">
                                                     <div className="flex justify-between items-start mb-4">
                                                         <div>
-                                                            <p className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-2">{new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}</p>
+                                                            <div className="flex items-center gap-2 mb-2 font-modern">
+                                                                {entry.isPinned && <i className="fas fa-thumbtack text-blue-400 text-xs"></i>}
+                                                                <p className="text-xs font-black text-blue-400 uppercase tracking-[0.2em]">{new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}</p>
+                                                            </div>
                                                             <h3 className={`text-2xl font-bold leading-tight line-clamp-2 drop-shadow-md ${privacyMode && !entry.backgroundImage ? 'privacy-blur' : ''}`}>{entry.title || 'Untitled'}</h3>
                                                         </div>
-                                                        <div className="flex gap-1 items-center bg-black/30 backdrop-blur-md rounded-full p-1 border border-white/10 shadow-inner">
+                                                        <div className="flex gap-1 items-center bg-black/30 backdrop-blur-md rounded-full p-1 border border-white/10 shadow-inner font-modern">
                                                             <span className="w-8 h-8 flex items-center justify-center text-lg">{entry.mood === 'happy' ? '😊' : entry.mood === 'sad' ? '😢' : '😐'}</span>
                                                             <button onClick={(e) => { e.stopPropagation(); saveEntry({ ...entry, isFavorite: !entry.isFavorite }, true); }} className="w-8 h-8 flex items-center justify-center text-lg hover:scale-125 transition-transform">{entry.isFavorite ? '⭐' : <span className="opacity-30">☆</span>}</button>
                                                         </div>
                                                     </div>
                                                     <p className={`text-base text-gray-300 line-clamp-3 mb-6 flex-grow font-medium leading-relaxed ${privacyMode && !entry.backgroundImage ? 'privacy-blur' : ''}`}>{entry.content}</p>
-                                                    <div className="flex justify-between items-center text-xs font-bold text-gray-400 border-t border-white/10 pt-4 mt-auto">
+                                                    <div className="flex justify-between items-center text-xs font-bold text-gray-400 border-t border-white/10 pt-4 mt-auto font-modern">
                                                         <div className="flex items-center gap-3">
                                                             <span className="bg-white/10 px-3 py-1.5 rounded-lg text-white border border-white/5">{entry.notebook}</span>
                                                             {entry.images && entry.images.length > 0 && <i className="fas fa-image text-green-400"></i>}
@@ -1017,27 +1164,39 @@
                     {/* --- EDITOR VIEW --- */}
                     {currentRoute === 'editor' && currentEntry && (
                         <div className="min-h-screen pb-32 pt-6">
-                            <div className="max-w-5xl mx-auto px-4 mb-8 sticky top-6 z-[60]">
+                            <div className="max-w-5xl mx-auto px-4 mb-8 sticky top-6 z-[60] font-modern">
                                 <div className="glass-panel p-3 flex justify-between items-center shadow-[0_15px_40px_rgba(0,0,0,0.5)]">
-                                    <button onClick={() => { setCurrentRoute('dashboard'); setCurrentEntry(null); }} className="w-12 h-12 rounded-full glass-button flex items-center justify-center"><i className="fas fa-arrow-left"></i></button>
-                                    <div className="flex items-center gap-4">
-                                        <div className="hidden sm:flex flex-col items-end mr-2">
-                                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Session Goal</span>
-                                            <div className="w-32 h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/5">
-                                                <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-full" style={{width: `${Math.min(100, ((currentEntry.content?currentEntry.content.trim().split(/\s+/).length:0)/300)*100)}%`}}></div>
+                                    <button onClick={() => { setCurrentRoute('dashboard'); setCurrentEntry(null); setPomoVisible(false); }} className="w-12 h-12 rounded-full glass-button flex items-center justify-center"><i className="fas fa-arrow-left"></i></button>
+                                    
+                                    <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-white/5 rounded-full border border-white/5 text-xs font-bold text-gray-400">
+                                        {syncStatus === 'saving' ? <><i className="fas fa-sync fa-spin text-blue-400"></i> Saving...</> : syncStatus === 'saved' ? <><i className="fas fa-cloud-check text-green-400"></i> Saved to Cloud</> : <><i className="fas fa-triangle-exclamation text-red-400"></i> Sync Error</>}
+                                    </div>
+
+                                    <div className="flex items-center gap-2 sm:gap-4 relative">
+                                        <button onClick={() => setPomoVisible(!pomoVisible)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${pomoActive || pomoVisible ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'glass-button text-gray-300'}`}><i className="fas fa-stopwatch"></i></button>
+                                        
+                                        {pomoVisible && (
+                                            <div className="absolute top-16 right-20 glass-panel p-5 w-64 shadow-2xl border border-white/20 animate-fadeIn z-[70] flex flex-col items-center">
+                                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Focus Session</h4>
+                                                <div className="text-4xl font-black font-mono tracking-wider mb-4 text-orange-400">{formatPomo(pomoTime)}</div>
+                                                <div className="flex gap-2 w-full">
+                                                    <button onClick={() => setPomoActive(!pomoActive)} className={`flex-1 py-2 rounded-xl font-bold text-white shadow-lg ${pomoActive ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}>{pomoActive ? 'Pause' : 'Start'}</button>
+                                                    <button onClick={() => { setPomoTime(25*60); setPomoActive(false); }} className="w-10 h-10 shrink-0 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center"><i className="fas fa-rotate-right text-white"></i></button>
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
+
                                         <button onClick={() => setFocusMode(!focusMode)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${focusMode ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'glass-button text-gray-300'}`}><i className={`fas fa-${focusMode ? 'compress' : 'expand'}`}></i></button>
-                                        <button onClick={() => { saveEntry(currentEntry); setCurrentRoute('dashboard'); setCurrentEntry(null); }} className="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full font-bold shadow-lg shadow-blue-500/30 transition-transform hover:scale-105 flex items-center gap-2"><i className="fas fa-check"></i> Done</button>
+                                        <button onClick={() => setDeleteModal({ isOpen: true, payload: currentEntry.id, type: 'entry' })} className="w-12 h-12 rounded-full flex items-center justify-center transition-all glass-button text-red-400 hover:bg-red-500/20" title="Delete Entry"><i className="fas fa-trash"></i></button>
+                                        <button onClick={() => { saveEntry(currentEntry); setCurrentRoute('dashboard'); setCurrentEntry(null); setPomoVisible(false); }} className="px-6 sm:px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full font-bold shadow-lg shadow-blue-500/30 transition-transform hover:scale-105 flex items-center gap-2"><i className="fas fa-check"></i> Done</button>
                                     </div>
                                 </div>
                             </div>
                             
                             <div className={`max-w-4xl mx-auto glass-panel transition-all duration-500 border-t border-white/20 shadow-2xl ${focusMode ? 'p-6 sm:p-10' : 'p-8 sm:p-14'}`}>
                                 
-                                {/* Dynamic Cover Image Area */}
                                 {currentEntry.backgroundImage && (
-                                    <div className="relative mb-8 h-64 rounded-3xl overflow-hidden group shadow-inner border border-white/10">
+                                    <div className="relative mb-8 h-64 rounded-3xl overflow-hidden group shadow-inner border border-white/10 font-modern">
                                         <img src={currentEntry.backgroundImage} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                                         <button onClick={() => setCurrentEntry({ ...currentEntry, backgroundImage: null })} className="absolute top-5 right-5 bg-black/50 hover:bg-red-500 text-white w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md transition-all border border-white/20 hover:border-red-400 shadow-lg"><i className="fas fa-trash"></i></button>
@@ -1045,70 +1204,90 @@
                                 )}
                                 
                                 {!focusMode && (
-                                    <div className="flex flex-wrap gap-4 mb-10 bg-black/30 p-5 rounded-3xl border border-white/5 items-center justify-between shadow-inner">
-                                        <div className="flex flex-wrap gap-3">
-                                            <div className="relative group">
-                                                <select value={currentEntry.notebook || 'Main Diary'} onChange={(e) => setCurrentEntry({ ...currentEntry, notebook: e.target.value })} className="appearance-none pl-12 pr-10 py-3 rounded-2xl glass-input text-sm font-bold text-white outline-none cursor-pointer">
-                                                    {notebooks.map(nb => <option key={nb} value={nb} className="bg-gray-900">{nb}</option>)}
-                                                </select>
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-blue-400 group-hover:scale-110 transition-transform"><i className="fas fa-book"></i></div>
+                                    <div className="flex flex-col gap-4 mb-10 bg-black/30 p-5 rounded-3xl border border-white/5 shadow-inner font-modern">
+                                        <div className="flex flex-wrap gap-4 justify-between items-center w-full">
+                                            <div className="flex flex-wrap gap-3">
+                                                <div className="relative group">
+                                                    <select value={currentEntry.notebook || 'Main Diary'} onChange={(e) => setCurrentEntry({ ...currentEntry, notebook: e.target.value })} className="appearance-none pl-12 pr-10 py-3 rounded-2xl glass-input text-sm font-bold text-white outline-none cursor-pointer">
+                                                        {notebooks.map(nb => <option key={nb} value={nb} className="bg-gray-900">{nb}</option>)}
+                                                    </select>
+                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-blue-400 group-hover:scale-110 transition-transform"><i className="fas fa-book"></i></div>
+                                                </div>
+                                                
+                                                <div className="flex bg-black/40 rounded-2xl border border-white/10 p-1">
+                                                    {['happy','neutral','sad'].map(m => (
+                                                        <button key={m} onClick={() => setCurrentEntry({...currentEntry, mood: m})} className={`w-12 h-10 rounded-xl text-xl flex items-center justify-center transition-all ${currentEntry.mood === m ? 'bg-white/20 shadow-md transform scale-110' : 'opacity-50 hover:opacity-100'}`} title={`Mood: ${m}`}>
+                                                            {m === 'happy' ? '😊' : m === 'sad' ? '😢' : '😐'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                
+                                                <div className="flex bg-black/40 rounded-2xl border border-white/10 p-1">
+                                                    {[{id:'sunny', i:'sun', c:'yellow'},{id:'cloudy', i:'cloud', c:'gray'},{id:'rainy', i:'cloud-rain', c:'blue'},{id:'snowy', i:'snowflake', c:'white'}].map(w => (
+                                                        <button key={w.id} onClick={() => setCurrentEntry({...currentEntry, weather: w.id})} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${currentEntry.weather === w.id ? `bg-white/20 shadow-md text-${w.c}-400 transform scale-110` : 'text-gray-500 hover:text-white'}`} title={`Weather: ${w.id}`}>
+                                                            <i className={`fas fa-${w.i}`}></i>
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                <button onClick={() => setCurrentEntry({...currentEntry, isPinned: !currentEntry.isPinned})} className={`h-12 px-4 rounded-2xl border border-white/10 transition-all font-bold text-sm flex items-center gap-2 ${currentEntry.isPinned ? 'bg-blue-500/20 text-blue-400' : 'bg-black/40 text-gray-400 hover:text-white'}`}>
+                                                    <i className="fas fa-thumbtack"></i> {currentEntry.isPinned ? 'Pinned' : 'Pin'}
+                                                </button>
                                             </div>
                                             
-                                            <div className="flex bg-black/40 rounded-2xl border border-white/10 p-1">
-                                                {['happy','neutral','sad'].map(m => (
-                                                    <button key={m} onClick={() => setCurrentEntry({...currentEntry, mood: m})} className={`w-12 h-10 rounded-xl text-xl flex items-center justify-center transition-all ${currentEntry.mood === m ? 'bg-white/20 shadow-md transform scale-110' : 'opacity-50 hover:opacity-100'}`}>
-                                                        {m === 'happy' ? '😊' : m === 'sad' ? '😢' : '😐'}
-                                                    </button>
+                                            <div className="flex gap-2 bg-black/40 p-2 rounded-2xl border border-white/10">
+                                                {['blue', 'purple', 'pink', 'red', 'yellow', 'green'].map(color => (
+                                                    <button key={color} onClick={() => setCurrentEntry({ ...currentEntry, color })} className={`w-7 h-7 rounded-full bg-${color}-500 transition-all ${currentEntry.color === color ? 'ring-2 ring-white scale-110 shadow-[0_0_10px_currentColor]' : 'opacity-60 hover:opacity-100 hover:scale-110'}`}></button>
                                                 ))}
                                             </div>
                                         </div>
                                         
-                                        <div className="flex gap-2 bg-black/40 p-2 rounded-2xl border border-white/10">
-                                            {['blue', 'purple', 'pink', 'red', 'yellow', 'green'].map(color => (
-                                                <button key={color} onClick={() => setCurrentEntry({ ...currentEntry, color })} className={`w-7 h-7 rounded-full bg-${color}-500 transition-all ${currentEntry.color === color ? 'ring-2 ring-white scale-110 shadow-[0_0_10px_currentColor]' : 'opacity-60 hover:opacity-100 hover:scale-110'}`}></button>
+                                        <div className="border-t border-white/10 pt-3 mt-1 flex flex-wrap items-center gap-2">
+                                            <div className="relative">
+                                                <i className="fas fa-tag absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                                                <input type="text" value={tagInput} onChange={e=>setTagInput(e.target.value)} onKeyDown={(e)=> {
+                                                    if(e.key==='Enter' && tagInput.trim()) {
+                                                        e.preventDefault();
+                                                        const newTag = tagInput.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                                                        if(newTag && !(currentEntry.tags||[]).includes(newTag)) {
+                                                            setCurrentEntry({...currentEntry, tags: [...(currentEntry.tags||[]), newTag]});
+                                                        }
+                                                        setTagInput('');
+                                                    }
+                                                }} placeholder="Add tags & press Enter..." className="pl-8 pr-3 py-1.5 bg-black/50 border border-white/10 rounded-lg text-sm text-white outline-none focus:border-blue-500" />
+                                            </div>
+                                            <button onClick={handleAutoTags} disabled={isAILoading} className="bg-gradient-to-r from-teal-500/20 to-emerald-500/20 hover:from-teal-500/40 hover:to-emerald-500/40 border border-teal-500/30 text-teal-300 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all disabled:opacity-50">
+                                               <i className="fas fa-tags"></i> Auto-Tags ✨
+                                            </button>
+                                            {(currentEntry.tags||[]).map((t, idx) => (
+                                                <span key={idx} className="bg-white/10 text-gray-300 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-2 border border-white/5">
+                                                    #{t} <button onClick={()=>setCurrentEntry({...currentEntry, tags: currentEntry.tags.filter((_,i)=>i!==idx)})} className="hover:text-red-400"><i className="fas fa-times"></i></button>
+                                                </span>
                                             ))}
                                         </div>
                                     </div>
                                 )}
                                 
-                                <input type="text" value={currentEntry.title} onChange={(e) => setCurrentEntry({ ...currentEntry, title: e.target.value })} placeholder="Title your memory..." className="w-full text-5xl sm:text-6xl font-extrabold mb-6 bg-transparent outline-none placeholder-gray-700 text-white transition-all tracking-tight leading-tight" />
+                                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 border-b border-white/10 pb-4">
+                                    <input type="text" value={currentEntry.title} onChange={(e) => setCurrentEntry({ ...currentEntry, title: e.target.value })} placeholder="Title your memory..." className="w-full text-5xl sm:text-6xl font-extrabold bg-transparent outline-none placeholder-gray-700 text-white transition-all tracking-tight leading-tight" />
+                                    <button onClick={handleAutoTitle} disabled={isAILoading} className="shrink-0 px-4 py-2 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/40 hover:to-purple-500/40 border border-indigo-500/30 rounded-xl text-indigo-300 font-bold text-sm shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                                        {isAILoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-magic"></i>} Auto-Title ✨
+                                    </button>
+                                </div>
                                 
-                                {/* Integrated Media URL Bar */}
                                 {!focusMode && (
-                                    <div className="mb-6 flex flex-col gap-3">
+                                    <div className="mb-6 flex flex-col gap-3 font-modern">
                                         <div className="flex gap-3 items-center">
-                                            {!currentEntry.backgroundImage && (
-                                                <button onClick={() => setUrlInputMode('cover')} className="bg-white/5 hover:bg-white/10 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors border border-white/10 hover:border-blue-500/50 flex items-center gap-2">
-                                                    <i className="fas fa-image text-blue-400"></i> Add Cover Image
-                                                </button>
-                                            )}
-                                            {!currentEntry.youtubeUrl && (
-                                                <button onClick={() => setUrlInputMode('youtube')} className="bg-white/5 hover:bg-white/10 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors border border-white/10 hover:border-red-500/50 flex items-center gap-2">
-                                                    <i className="fab fa-youtube text-red-500"></i> Embed YouTube
-                                                </button>
-                                            )}
+                                            {!currentEntry.backgroundImage && <button onClick={() => setUrlInputMode('cover')} className="bg-white/5 hover:bg-white/10 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors border border-white/10 hover:border-blue-500/50 flex items-center gap-2"><i className="fas fa-image text-blue-400"></i> Add Cover Image</button>}
+                                            {!currentEntry.youtubeUrl && <button onClick={() => setUrlInputMode('youtube')} className="bg-white/5 hover:bg-white/10 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors border border-white/10 hover:border-red-500/50 flex items-center gap-2"><i className="fab fa-youtube text-red-500"></i> Embed YouTube</button>}
                                         </div>
-
                                         {urlInputMode && (
                                             <div className="flex gap-2 animate-fadeIn bg-black/50 p-2 rounded-2xl border border-white/10">
-                                                <input 
-                                                    type="text" 
-                                                    value={tempUrl} 
-                                                    onChange={(e) => setTempUrl(e.target.value)} 
-                                                    placeholder={`Paste ${urlInputMode === 'cover' ? 'Image' : 'YouTube'} URL...`} 
-                                                    className="flex-grow bg-transparent text-white px-4 outline-none placeholder-gray-500 font-medium" 
-                                                    autoFocus
-                                                />
+                                                <input type="text" value={tempUrl} onChange={(e) => setTempUrl(e.target.value)} placeholder={`Paste ${urlInputMode === 'cover' ? 'Image' : 'YouTube'} URL...`} className="flex-grow bg-transparent text-white px-4 outline-none placeholder-gray-500 font-medium" autoFocus />
                                                 <button onClick={() => {
-                                                    if(urlInputMode === 'cover') {
-                                                        setCurrentEntry({...currentEntry, backgroundImage: tempUrl});
-                                                    } else if (urlInputMode === 'youtube') {
-                                                        const embed = getYouTubeEmbedUrl(tempUrl);
-                                                        if(embed) setCurrentEntry({...currentEntry, youtubeUrl: tempUrl});
-                                                        else showToast('Invalid YouTube URL');
-                                                    }
-                                                    setUrlInputMode(null);
-                                                    setTempUrl('');
+                                                    if(urlInputMode === 'cover') setCurrentEntry({...currentEntry, backgroundImage: tempUrl});
+                                                    else if (urlInputMode === 'youtube') { const embed = getYouTubeEmbedUrl(tempUrl); if(embed) setCurrentEntry({...currentEntry, youtubeUrl: tempUrl}); else showToast('Invalid YouTube URL'); }
+                                                    setUrlInputMode(null); setTempUrl('');
                                                 }} className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-xl font-bold shadow-md transition-colors">Apply</button>
                                                 <button onClick={() => {setUrlInputMode(null); setTempUrl('');}} className="glass-button px-4 py-2 rounded-xl font-medium"><i className="fas fa-times"></i></button>
                                             </div>
@@ -1117,10 +1296,14 @@
                                 )}
                                 
                                 {!focusMode && (
-                                    <div className="mb-8 flex gap-2 overflow-x-auto hide-scrollbar bg-black/30 p-2.5 rounded-2xl border border-white/10 sticky top-28 z-50 shadow-lg backdrop-blur-md">
+                                    <div className="mb-8 flex gap-2 overflow-x-auto hide-scrollbar bg-black/30 p-2.5 rounded-2xl border border-white/10 sticky top-28 z-50 shadow-lg backdrop-blur-md font-modern">
                                         <button onClick={() => setShowTemplateModal(true)} className="px-4 py-2 shrink-0 flex items-center gap-2 rounded-xl bg-white/5 hover:bg-indigo-500/20 text-indigo-300 text-sm font-bold transition-all border border-transparent hover:border-indigo-500/30"><i className="fas fa-layer-group"></i> Templates</button>
                                         <button onClick={generatePrompt} className="px-4 py-2 shrink-0 flex items-center gap-2 rounded-xl bg-white/5 hover:bg-orange-500/20 text-orange-300 text-sm font-bold transition-all border border-transparent hover:border-orange-500/30"><i className="fas fa-lightbulb"></i> Prompt</button>
-                                        <button onClick={autoDetectMood} className="px-4 py-2 shrink-0 flex items-center gap-2 rounded-xl bg-white/5 hover:bg-pink-500/20 text-pink-300 text-sm font-bold transition-all border border-transparent hover:border-pink-500/30"><i className="fas fa-wand-magic-sparkles"></i> Auto-Mood</button>
+                                        
+                                        <div className="w-[1px] bg-white/10 my-1 mx-2 shrink-0"></div>
+                                        <button onClick={handlePolishWriting} disabled={isAILoading} className="px-4 py-2 shrink-0 flex items-center gap-2 rounded-xl bg-blue-500/20 text-blue-300 text-sm font-bold transition-all border border-blue-500/30 hover:bg-blue-500/40 disabled:opacity-50" title="Polish Grammar & Flow"><i className="fas fa-wand-magic-sparkles"></i> Polish ✨</button>
+                                        <button onClick={handleAIReflection} disabled={isAILoading} className="px-4 py-2 shrink-0 flex items-center gap-2 rounded-xl bg-fuchsia-500/20 text-fuchsia-300 text-sm font-bold transition-all border border-fuchsia-500/30 hover:bg-fuchsia-500/40 disabled:opacity-50" title="Get AI Coaching"><i className="fas fa-brain"></i> Reflect ✨</button>
+
                                         <div className="w-[1px] bg-white/10 my-1 mx-2 shrink-0"></div>
                                         
                                         <button onClick={() => insertMarkdown('**', '**')} className="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl hover:bg-white/10 text-gray-300 transition-colors"><i className="fas fa-bold"></i></button>
@@ -1137,7 +1320,7 @@
                                 
                                 <textarea id="diary-textarea" value={currentEntry.content} onChange={(e) => setCurrentEntry({ ...currentEntry, content: e.target.value })} placeholder="Write your story here... Markdown is supported." className="w-full min-h-[60vh] bg-transparent outline-none resize-none leading-[1.8] text-gray-200 custom-scrollbar" style={{ fontSize: textSize === 'small' ? '16px' : textSize === 'large' ? '22px' : '18px' }} />
                                 
-                                <div className="mt-10 space-y-6">
+                                <div className="mt-10 space-y-6 font-modern">
                                     {currentEntry.location && (
                                         <div className="inline-flex items-center gap-3 bg-black/40 border border-white/10 px-5 py-3 rounded-2xl text-sm font-medium text-white shadow-inner">
                                             <i className="fas fa-location-dot text-red-400 text-lg"></i> {currentEntry.location}
@@ -1163,8 +1346,6 @@
                                             <button onClick={() => setCurrentEntry({...currentEntry, audioMemo: null})} className="w-12 h-12 shrink-0 text-gray-400 hover:text-red-400 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center transition-colors"><i className="fas fa-trash"></i></button>
                                         </div>
                                     )}
-                                    
-                                    {/* Dedicated YouTube Preview Section in Editor */}
                                     {currentEntry.youtubeUrl && (
                                         <div className="relative rounded-3xl overflow-hidden aspect-video border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group bg-black/50">
                                             <iframe className="w-full h-full" src={getYouTubeEmbedUrl(currentEntry.youtubeUrl)} frameBorder="0" allowFullScreen></iframe>
@@ -1179,16 +1360,28 @@
                     {/* --- READER VIEW --- */}
                     {currentRoute === 'reader' && currentEntry && (
                         <div className="min-h-screen pb-40 pt-10 print:pt-0 print:pb-0">
-                            <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-[100] flex gap-2 p-2.5 glass-panel rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] no-print">
-                                <button onClick={() => setCurrentRoute('dashboard')} className="w-14 h-14 rounded-full glass-button text-lg"><i className="fas fa-arrow-left"></i></button>
-                                <button onClick={() => setCurrentRoute('editor')} className="w-14 h-14 rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/40 hover:-translate-y-1 transition-all text-lg"><i className="fas fa-pen"></i></button>
-                                <div className="w-[1px] bg-white/10 my-2 mx-1"></div>
-                                <button onClick={handleTTS} className="w-14 h-14 rounded-full glass-button text-green-400 text-lg" title="Read Aloud"><i className="fas fa-volume-high"></i></button>
-                                <button onClick={handleExportMD} className="w-14 h-14 rounded-full glass-button text-purple-400 text-lg" title="Export Markdown"><i className="fab fa-markdown"></i></button>
-                                <button onClick={() => window.print()} className="w-14 h-14 rounded-full glass-button text-yellow-400 text-lg" title="Print/PDF"><i className="fas fa-print"></i></button>
-                            </div>
+                            {!readerFocus && (
+                                <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-[100] flex gap-2 p-2.5 glass-panel rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] no-print font-modern transition-all animate-fadeIn">
+                                    <button onClick={() => setCurrentRoute('dashboard')} className="w-14 h-14 rounded-full glass-button text-lg"><i className="fas fa-arrow-left"></i></button>
+                                    <button onClick={() => setCurrentRoute('editor')} className="w-14 h-14 rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/40 hover:-translate-y-1 transition-all text-lg"><i className="fas fa-pen"></i></button>
+                                    <div className="w-[1px] bg-white/10 my-2 mx-1"></div>
+                                    {/* Feature: Gemini Realistic TTS Voice ✨ */}
+                                    <button onClick={handleGeminiTTS} disabled={isAILoading} className="w-14 h-14 rounded-full glass-button text-green-400 text-lg disabled:opacity-50" title="AI Read Aloud ✨">
+                                        {isAILoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-volume-high"></i>}
+                                    </button>
+                                    <button onClick={handleCopyEntry} className="w-14 h-14 rounded-full glass-button text-indigo-400 text-lg" title="Copy Text"><i className="fas fa-copy"></i></button>
+                                    <button onClick={handleExportMD} className="w-14 h-14 rounded-full glass-button text-purple-400 text-lg" title="Export Markdown"><i className="fab fa-markdown"></i></button>
+                                    <button onClick={() => window.print()} className="w-14 h-14 rounded-full glass-button text-yellow-400 text-lg" title="Print/PDF"><i className="fas fa-print"></i></button>
+                                    <div className="w-[1px] bg-white/10 my-2 mx-1"></div>
+                                    <button onClick={() => setDeleteModal({ isOpen: true, payload: currentEntry.id, type: 'entry' })} className="w-14 h-14 rounded-full glass-button text-red-400 hover:bg-red-500/20 text-lg" title="Delete Entry"><i className="fas fa-trash"></i></button>
+                                </div>
+                            )}
                             
-                            <div className="relative z-10 max-w-4xl mx-auto px-4 print:px-0 print:max-w-full">
+                            <button onClick={() => setReaderFocus(!readerFocus)} className="fixed top-10 right-10 z-[100] w-12 h-12 rounded-full glass-panel flex items-center justify-center hover:bg-white/10 transition-colors no-print font-modern">
+                                <i className={`fas fa-${readerFocus ? 'compress' : 'expand'} text-gray-400`}></i>
+                            </button>
+                            
+                            <div className={`relative z-10 max-w-4xl mx-auto px-4 print:px-0 print:max-w-full transition-all duration-700 ${readerFocus ? 'scale-105' : ''}`}>
                                 <div className="glass-panel p-10 sm:p-16 print:bg-white print:border-none print:shadow-none print:p-0 print-content overflow-hidden relative">
                                     {currentEntry.backgroundImage && (
                                         <div className="absolute top-0 left-0 w-full h-80 z-0 no-print">
@@ -1197,13 +1390,14 @@
                                         </div>
                                     )}
                                     
-                                    <div className="relative z-10 mb-16 text-center border-b border-white/10 pb-12 print:border-black/10">
+                                    <div className="relative z-10 mb-16 text-center border-b border-white/10 pb-12 print:border-black/10 font-modern">
                                         <p className="text-sm font-black tracking-[0.3em] uppercase text-blue-400 mb-6 print:text-gray-500">{new Date(currentEntry.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                                        <h1 className="text-5xl sm:text-6xl font-black mb-8 leading-[1.1] text-white drop-shadow-lg print:text-black tracking-tight">{currentEntry.title}</h1>
+                                        <h1 className={`text-5xl sm:text-6xl font-black mb-8 leading-[1.1] text-white drop-shadow-lg print:text-black tracking-tight font-${fontFamily}`}>{currentEntry.title}</h1>
                                         
                                         <div className="flex justify-center flex-wrap gap-4 text-sm font-bold text-gray-300 print:text-gray-600">
                                             <span className="bg-white/10 border border-white/10 px-4 py-1.5 rounded-lg print:bg-gray-100 backdrop-blur-sm"><i className="fas fa-book-open mr-2 text-blue-400"></i>{currentEntry.notebook}</span>
                                             {currentEntry.location && <span className="bg-white/10 border border-white/10 px-4 py-1.5 rounded-lg backdrop-blur-sm"><i className="fas fa-location-dot text-red-400 mr-2"></i>{currentEntry.location}</span>}
+                                            {currentEntry.weather && <span className="bg-white/10 border border-white/10 px-4 py-1.5 rounded-lg backdrop-blur-sm"><i className={`fas fa-${currentEntry.weather === 'sunny' ? 'sun text-yellow-400' : currentEntry.weather === 'rainy' ? 'cloud-rain text-blue-400' : currentEntry.weather === 'cloudy' ? 'cloud text-gray-400' : 'snowflake text-white'} mr-2`}></i><span className="capitalize">{currentEntry.weather}</span></span>}
                                             <span className="bg-white/10 border border-white/10 px-4 py-1.5 rounded-lg backdrop-blur-sm"><i className="far fa-clock text-green-400 mr-2"></i>{Math.max(1, Math.ceil((currentEntry.content ? currentEntry.content.trim().split(/\s+/).length : 0) / 200))} min</span>
                                         </div>
                                     </div>
@@ -1213,8 +1407,6 @@
                                             {currentEntry.images.map((img, idx) => <img key={idx} src={img} className="h-80 w-auto object-cover rounded-3xl shadow-2xl border border-white/10 print:h-auto print:max-w-full print:border-none" />)}
                                         </div>
                                     )}
-
-                                    {/* Reader YouTube Presentation */}
                                     {currentEntry.youtubeUrl && (
                                         <div className="mb-14 rounded-3xl overflow-hidden shadow-2xl aspect-video border border-white/10 relative z-10">
                                             <iframe className="w-full h-full" src={getYouTubeEmbedUrl(currentEntry.youtubeUrl)} frameBorder="0" allowFullScreen></iframe>
@@ -1228,8 +1420,8 @@
                                     />
                                     
                                     {currentEntry.tags && currentEntry.tags.length > 0 && (
-                                        <div className="flex gap-3 flex-wrap mt-16 pt-8 border-t border-white/10 relative z-10 print:border-black/10">
-                                            {currentEntry.tags.map((t, idx) => <span key={idx} className="text-sm font-bold text-gray-400 bg-white/5 px-4 py-2 rounded-xl">#{t}</span>)}
+                                        <div className="flex gap-3 flex-wrap mt-16 pt-8 border-t border-white/10 relative z-10 print:border-black/10 font-modern">
+                                            {currentEntry.tags.map((t, idx) => <span key={idx} className="text-sm font-bold text-gray-400 bg-white/5 px-4 py-2 rounded-xl border border-white/5">#{t}</span>)}
                                         </div>
                                     )}
                                 </div>
@@ -1239,7 +1431,7 @@
 
                     {/* --- INSIGHTS --- */}
                     {currentRoute === 'insights' && (
-                        <div className="max-w-6xl mx-auto px-4 py-10 pb-20">
+                        <div className="max-w-6xl mx-auto px-4 py-10 pb-20 font-modern">
                             <div className="flex items-center gap-6 mb-12">
                                 <button onClick={() => setCurrentRoute('dashboard')} className="w-12 h-12 rounded-full glass-button flex items-center justify-center text-xl"><i className="fas fa-arrow-left"></i></button>
                                 <h2 className="text-4xl font-black tracking-tight text-white">Journey Insights</h2>
@@ -1272,20 +1464,46 @@
                                 </div>
                             </div>
                             
-                            <div className="glass-panel p-10">
-                                <h3 className="text-2xl font-bold mb-8 flex items-center gap-3 text-white"><i className="fas fa-calendar-alt text-blue-400"></i> Activity Map</h3>
-                                <div className="overflow-x-auto hide-scrollbar pb-4">
-                                    <div className="grid grid-rows-7 grid-flow-col gap-2 min-w-max">
-                                        {[...Array(365)].map((_, i) => {
-                                            const date = new Date(); date.setDate(date.getDate() - 364 + i);
-                                            const count = entries.filter(e => new Date(e.date).toDateString() === date.toDateString()).length;
-                                            let bg = 'bg-white/5 border border-white/5';
-                                            if (count === 1) bg = 'bg-blue-500/40 border border-blue-400/50 shadow-[0_0_10px_rgba(59,130,246,0.3)]';
-                                            if (count === 2) bg = 'bg-blue-500/70 border border-blue-400/80 shadow-[0_0_15px_rgba(59,130,246,0.5)]';
-                                            if (count >= 3) bg = 'bg-blue-400 border border-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.8)] scale-110 z-10 relative';
-                                            return <div key={i} className={`w-4 h-4 rounded-sm ${bg} transition-all duration-300 hover:scale-[2] hover:z-20 cursor-crosshair`} title={`${date.toLocaleDateString()}: ${count} entries`}></div>;
-                                        })}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="glass-panel p-10">
+                                    <h3 className="text-2xl font-bold mb-8 flex items-center gap-3 text-white"><i className="fas fa-calendar-alt text-blue-400"></i> Activity Map</h3>
+                                    <div className="overflow-x-auto hide-scrollbar pb-4">
+                                        <div className="grid grid-rows-7 grid-flow-col gap-2 min-w-max">
+                                            {[...Array(365)].map((_, i) => {
+                                                const date = new Date(); date.setDate(date.getDate() - 364 + i);
+                                                const count = entries.filter(e => new Date(e.date).toDateString() === date.toDateString()).length;
+                                                let bg = 'bg-white/5 border border-white/5';
+                                                if (count === 1) bg = 'bg-blue-500/40 border border-blue-400/50 shadow-[0_0_10px_rgba(59,130,246,0.3)]';
+                                                if (count === 2) bg = 'bg-blue-500/70 border border-blue-400/80 shadow-[0_0_15px_rgba(59,130,246,0.5)]';
+                                                if (count >= 3) bg = 'bg-blue-400 border border-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.8)] scale-110 z-10 relative';
+                                                return <div key={i} className={`w-4 h-4 rounded-sm ${bg} transition-all duration-300 hover:scale-[2] hover:z-20 cursor-crosshair`} title={`${date.toLocaleDateString()}: ${count} entries`}></div>;
+                                            })}
+                                        </div>
                                     </div>
+                                </div>
+                                
+                                <div className="glass-panel p-10">
+                                    <h3 className="text-2xl font-bold mb-8 flex items-center gap-3 text-white"><i className="fas fa-face-smile-beam text-pink-400"></i> Mood Analytics</h3>
+                                    {(() => {
+                                        const h = entries.filter(e => e.mood === 'happy').length;
+                                        const n = entries.filter(e => e.mood === 'neutral').length;
+                                        const s = entries.filter(e => e.mood === 'sad').length;
+                                        const t = Math.max(1, h + n + s); // avoid div 0
+                                        return (
+                                            <div>
+                                                <div className="w-full h-8 flex rounded-full overflow-hidden mb-6 border border-white/10">
+                                                    <div className="bg-gradient-to-r from-green-400 to-green-500 h-full transition-all duration-1000" style={{width: `${(h/t)*100}%`}}></div>
+                                                    <div className="bg-gradient-to-r from-gray-400 to-gray-500 h-full transition-all duration-1000" style={{width: `${(n/t)*100}%`}}></div>
+                                                    <div className="bg-gradient-to-r from-red-400 to-red-500 h-full transition-all duration-1000" style={{width: `${(s/t)*100}%`}}></div>
+                                                </div>
+                                                <div className="flex justify-between items-center bg-black/30 p-4 rounded-2xl border border-white/5">
+                                                    <div className="text-center"><span className="text-2xl mb-1 block">😊</span><p className="text-sm font-bold text-green-400">{Math.round((h/t)*100)}%</p></div>
+                                                    <div className="text-center"><span className="text-2xl mb-1 block">😐</span><p className="text-sm font-bold text-gray-400">{Math.round((n/t)*100)}%</p></div>
+                                                    <div className="text-center"><span className="text-2xl mb-1 block">😢</span><p className="text-sm font-bold text-red-400">{Math.round((s/t)*100)}%</p></div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>
@@ -1293,7 +1511,7 @@
 
                     {/* --- TRASH --- */}
                     {currentRoute === 'trash' && (
-                        <div className="max-w-5xl mx-auto px-4 py-10 pb-20">
+                        <div className="max-w-5xl mx-auto px-4 py-10 pb-20 font-modern">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-6">
                                 <div className="flex items-center gap-6">
                                     <button onClick={() => setCurrentRoute('dashboard')} className="w-12 h-12 rounded-full glass-button flex items-center justify-center text-xl"><i className="fas fa-arrow-left"></i></button>
@@ -1302,14 +1520,12 @@
                                         <p className="text-gray-400 font-medium mt-1">{trash.length} items waiting for permanent deletion.</p>
                                     </div>
                                 </div>
-                                {trash.length > 0 && <button onClick={() => setDeleteModal({ isOpen: true, entryId: 'empty-trash' })} className="px-6 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-bold shadow-lg shadow-red-500/30 transition-transform hover:-translate-y-1 flex items-center gap-2"><i className="fas fa-fire"></i> Empty Bin</button>}
+                                {trash.length > 0 && <button onClick={() => setDeleteModal({ isOpen: true, payload: null, type: 'empty-trash' })} className="px-6 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-bold shadow-lg shadow-red-500/30 transition-transform hover:-translate-y-1 flex items-center gap-2"><i className="fas fa-fire"></i> Empty Bin</button>}
                             </div>
                             
                             {trash.length === 0 ? (
                                 <div className="text-center py-24 glass-panel">
-                                    <div className="w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-6">
-                                        <i className="fas fa-trash-can text-4xl text-gray-500"></i>
-                                    </div>
+                                    <div className="w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-6"><i className="fas fa-trash-can text-4xl text-gray-500"></i></div>
                                     <h3 className="text-2xl font-bold text-white">It's clean here</h3>
                                 </div>
                             ) : (
@@ -1331,28 +1547,9 @@
                         </div>
                     )}
 
-                    {/* --- MODALS & SETTINGS --- */}
-                    {showTemplateModal && (
-                        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-[9000] p-4">
-                            <div className="glass-panel p-8 max-w-md w-full shadow-2xl text-white relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
-                                <div className="flex justify-between items-center mb-8">
-                                    <h2 className="text-2xl font-bold"><i className="fas fa-layer-group text-indigo-400 mr-3"></i> Templates</h2>
-                                    <button onClick={() => setShowTemplateModal(false)} className="w-10 h-10 glass-button rounded-full"><i className="fas fa-times"></i></button>
-                                </div>
-                                <div className="space-y-3">
-                                    {diaryTemplates.map(t => (
-                                        <button key={t.name} onClick={() => insertTemplate(t)} className="w-full text-left p-5 glass-button rounded-xl font-bold text-lg hover:border-indigo-500/50 hover:bg-indigo-500/10">
-                                            {t.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
+                    {/* --- SETTINGS --- */}
                     {showSettings && (
-                        <div className="fixed inset-0 modal-overlay flex justify-end z-[9000]">
+                        <div className="fixed inset-0 modal-overlay flex justify-end z-[9000] font-modern">
                             <div className="bg-black/60 backdrop-blur-3xl border-l border-white/10 p-8 w-full max-w-md h-full shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-y-auto hide-scrollbar">
                                 <div className="flex justify-between items-center mb-10 border-b border-white/10 pb-6">
                                     <h2 className="text-3xl font-black text-white tracking-tight">Settings</h2>
@@ -1364,52 +1561,50 @@
                                         <h3 className="text-xs font-black text-cyan-400 mb-5 uppercase tracking-[0.2em]">Account Status</h3>
                                         <div>
                                             <div className="flex items-center gap-4 mb-5">
-                                                <div className="w-12 h-12 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
-                                                    <i className="fas fa-user"></i>
-                                                </div>
+                                                <div className="w-12 h-12 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl"><i className="fas fa-user"></i></div>
                                                 <div>
                                                     <p className="font-bold text-white text-lg">{user.displayName || 'Uday Kumar'}</p>
                                                     <p className="text-sm text-gray-400">{user.email || 'Cloud Linked Account'}</p>
                                                 </div>
                                             </div>
-                                            <button onClick={async () => { 
-                                                try {
-                                                    await signOut(auth);
-                                                    setShowSettings(false);
-                                                } catch (e) {
-                                                    showToast("Failed to sign out.");
-                                                }
-                                            }} className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl font-bold transition-colors shadow-inner flex items-center justify-center gap-2">
+                                            <button onClick={async () => { try { await signOut(auth); setShowSettings(false); } catch (e) { showToast("Failed to sign out."); } }} className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl font-bold transition-colors shadow-inner flex items-center justify-center gap-2">
                                                 <i className="fas fa-right-from-bracket"></i> Sign Out Securely
                                             </button>
                                         </div>
                                     </div>
+                                    
                                     <div className="glass-panel p-6 rounded-3xl">
                                         <h3 className="text-xs font-black text-blue-400 mb-5 uppercase tracking-[0.2em]">Privacy Vault</h3>
                                         <p className="text-sm text-gray-300 mb-5 font-medium">Require a 4-digit PIN to open the diary.</p>
                                         {appPin ? (
                                             <button onClick={() => { updateSetting('appPin', null); setAppPin(null); showToast('PIN Removed'); }} className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl font-bold transition-colors">Disable PIN Lock</button>
                                         ) : (
-                                            <button onClick={() => { 
-                                                setPromptModal({ 
-                                                    isOpen: true, title: 'Set 4-Digit PIN', placeholder: 'e.g. 1234',
-                                                    onConfirm: (p) => { 
-                                                        if(p && /^\d{4}$/.test(p)) { updateSetting('appPin', p); setAppPin(p); showToast('Vault Locked'); } 
-                                                        else showToast('Must be exactly 4 digits');
-                                                        setPromptModal({isOpen: false});
-                                                    }, onCancel: () => setPromptModal({isOpen: false}) 
-                                                }); 
-                                            }} className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-transform hover:-translate-y-1">Enable PIN Lock</button>
+                                            <button onClick={() => { setPromptModal({ isOpen: true, title: 'Set 4-Digit PIN', placeholder: 'e.g. 1234', onConfirm: (p) => { if(p && /^\d{4}$/.test(p)) { updateSetting('appPin', p); setAppPin(p); showToast('Vault Locked'); } else showToast('Must be exactly 4 digits'); setPromptModal({isOpen: false}); }, onCancel: () => setPromptModal({isOpen: false}) }); }} className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-transform hover:-translate-y-1">Enable PIN Lock</button>
                                         )}
                                     </div>
                                     
                                     <div className="glass-panel p-6 rounded-3xl">
                                         <h3 className="text-xs font-black text-purple-400 mb-5 uppercase tracking-[0.2em]">Appearance</h3>
+                                        <label className="block text-sm text-white font-bold mb-3">Background Effect</label>
+                                        <select value={bgEffect} onChange={(e) => { setBgEffect(e.target.value); updateSetting('bgEffect', e.target.value); }} className="w-full px-5 py-4 mb-6 glass-input rounded-xl text-white font-bold cursor-pointer">
+                                            <option value="birds" className="bg-gray-900">Origami Birds</option>
+                                            <option value="net" className="bg-gray-900">Cyber Net</option>
+                                            <option value="waves" className="bg-gray-900">Ocean Waves</option>
+                                            <option value="none" className="bg-gray-900">Deep Dark (None)</option>
+                                        </select>
+
+                                        <label className="block text-sm text-white font-bold mb-3">Typography Style</label>
+                                        <div className="flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5 mb-6">
+                                            {[{id:'modern', l:'Modern'}, {id:'academic', l:'Serif'}, {id:'typewriter', l:'Mono'}].map(f => (
+                                                <button key={f.id} onClick={() => { setFontFamily(f.id); updateSetting('fontFamily', f.id); }} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${fontFamily === f.id ? 'bg-white/20 text-white shadow-md' : 'text-gray-400 hover:text-white'} font-${f.id}`}>{f.l}</button>
+                                            ))}
+                                        </div>
+
                                         <label className="block text-sm text-white font-bold mb-3">Diary Name</label>
                                         <input type="text" value={appName} onChange={(e) => { setAppName(e.target.value); updateSetting('appName', e.target.value); }} className="w-full px-5 py-4 mb-6 glass-input rounded-xl text-white font-bold" />
                                         
                                         <label className="block text-sm text-white font-bold mb-3">Reader Text Size</label>
-                                        <div className="flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
+                                        <div className="flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5 mb-6">
                                             {['small', 'normal', 'large'].map(s => (
                                                 <button key={s} onClick={() => { setTextSize(s); updateSetting('textSize', s); }} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all capitalize ${textSize === s ? 'bg-white/20 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}>{s}</button>
                                             ))}
@@ -1418,8 +1613,15 @@
 
                                     <div className="glass-panel p-6 rounded-3xl">
                                         <h3 className="text-xs font-black text-green-400 mb-5 uppercase tracking-[0.2em]">Notebooks</h3>
-                                        <div className="flex flex-wrap gap-2 mb-5">
-                                            {notebooks.map(nb => <span key={nb} className="px-3 py-1.5 bg-white/10 rounded-lg text-sm font-bold text-white border border-white/5">{nb}</span>)}
+                                        <div className="flex flex-col gap-2 mb-5">
+                                            {notebooks.map(nb => (
+                                                <div key={nb} className="flex justify-between items-center px-4 py-2 bg-white/5 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                                                    <span className="font-bold text-white text-sm">{nb}</span>
+                                                    {nb !== 'Main Diary' && (
+                                                        <button onClick={() => deleteNotebook(nb)} className="w-8 h-8 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"><i className="fas fa-trash text-xs"></i></button>
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
                                         <button onClick={() => { 
                                             setPromptModal({ 
@@ -1429,14 +1631,19 @@
                                                     setPromptModal({isOpen: false});
                                                 }, onCancel: () => setPromptModal({isOpen: false}) 
                                             }); 
-                                        }} className="w-full py-3 glass-button rounded-xl text-white font-bold transition-colors"><i className="fas fa-plus mr-2"></i> Create Notebook</button>
+                                        }} className="w-full py-3 glass-button rounded-xl text-white font-bold transition-colors"><i className="fas fa-plus mr-2"></i> Add Notebook</button>
                                     </div>
                                     
                                     <div className="glass-panel p-6 rounded-3xl">
                                         <h3 className="text-xs font-black text-orange-400 mb-5 uppercase tracking-[0.2em]">Data Management</h3>
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-2 gap-3 mb-6">
                                             <button onClick={() => { exportEntries(); setShowSettings(false); }} className="py-4 glass-button rounded-xl text-white font-bold transition-colors flex flex-col items-center gap-2"><i className="fas fa-cloud-arrow-down text-2xl"></i> Export JSON</button>
                                             <button onClick={() => { importEntries(); setShowSettings(false); }} className="py-4 glass-button rounded-xl text-white font-bold transition-colors flex flex-col items-center gap-2"><i className="fas fa-cloud-arrow-up text-2xl"></i> Import JSON</button>
+                                        </div>
+                                        <div className="border-t border-red-500/30 pt-6 mt-4">
+                                            <button onClick={() => setDeleteModal({ isOpen: true, payload: null, type: 'clear-all' })} className="w-full py-4 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white transition-all rounded-xl font-black uppercase tracking-wider shadow-[0_0_15px_rgba(239,68,68,0.2)] flex items-center justify-center gap-2">
+                                                <i className="fas fa-skull-crossbones"></i> Wipe All Data
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -1444,8 +1651,43 @@
                         </div>
                     )}
                     
+                    {/* Modals */}
+                    {showTemplateModal && (
+                        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-[9000] p-4 font-modern">
+                            <div className="glass-panel p-8 max-w-md w-full shadow-2xl text-white relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
+                                <div className="flex justify-between items-center mb-8">
+                                    <h2 className="text-2xl font-bold"><i className="fas fa-layer-group text-indigo-400 mr-3"></i> Templates</h2>
+                                    <button onClick={() => setShowTemplateModal(false)} className="w-10 h-10 glass-button rounded-full"><i className="fas fa-times"></i></button>
+                                </div>
+                                <div className="space-y-3">
+                                    {diaryTemplates.map(t => <button key={t.name} onClick={() => insertTemplate(t)} className="w-full text-left p-5 glass-button rounded-xl font-bold text-lg hover:border-indigo-500/50 hover:bg-indigo-500/10">{t.name}</button>)}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
                     <PromptModal isOpen={promptModal.isOpen} title={promptModal.title} placeholder={promptModal.placeholder} onConfirm={promptModal.onConfirm} onCancel={promptModal.onCancel} />
-                    <Modal isOpen={deleteModal.isOpen} title="Confirm Action" message={deleteModal.entryId === 'empty-trash' ? 'Are you sure you want to permanently delete all items in the trash? This action cannot be undone.' : 'Are you sure you want to move this entry to the trash?'} onConfirm={() => { if (deleteModal.entryId === 'empty-trash') emptyTrash(); else { deleteEntry(deleteModal.entryId); setCurrentEntry(null); setCurrentRoute('dashboard'); } setDeleteModal({ isOpen: false, entryId: null }); }} onCancel={() => setDeleteModal({ isOpen: false, entryId: null })} confirmText={deleteModal.entryId === 'empty-trash' ? "Empty Trash" : "Move to Trash"} isDangerous />
+                    
+                    <Modal 
+                        isOpen={deleteModal.isOpen} 
+                        title="Confirm Action" 
+                        message={
+                            deleteModal.type === 'empty-trash' ? 'Are you sure you want to permanently delete all items in the trash? This cannot be undone.' : 
+                            deleteModal.type === 'clear-all' ? 'DANGER: You are about to permanently wipe ALL notebooks, entries, and trash. This cannot be undone.' :
+                            'Are you sure you want to move this entry to the trash?'
+                        } 
+                        onConfirm={() => { 
+                            if (deleteModal.type === 'empty-trash') emptyTrash(); 
+                            else if (deleteModal.type === 'clear-all') clearAllData();
+                            else { deleteEntry(deleteModal.payload); setCurrentEntry(null); setCurrentRoute('dashboard'); } 
+                            setDeleteModal({ isOpen: false, payload: null, type: '' }); 
+                        }} 
+                        onCancel={() => setDeleteModal({ isOpen: false, payload: null, type: '' })} 
+                        confirmText={deleteModal.type === 'empty-trash' ? "Empty Trash" : deleteModal.type === 'clear-all' ? "Wipe Data" : "Move to Trash"} 
+                        isDangerous 
+                    />
+                    
                     {toastMessage && <Toast message={toastMessage} />}
                     {showZenMode && <ZenMode onClose={() => setShowZenMode(false)} />}
                     {showDrawing && <DrawingCanvas onSave={url => { setCurrentEntry({...currentEntry, images: [...(currentEntry.images||[]), url]}); showToast('Doodle saved to entry'); }} onClose={() => setShowDrawing(false)} />}
@@ -1455,11 +1697,7 @@
         };
         
         const root = createRoot(document.getElementById('root'));
-        root.render(
-            <ErrorBoundary>
-                <App />
-            </ErrorBoundary>
-        );
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
     </script>
 </body>
 </html>
