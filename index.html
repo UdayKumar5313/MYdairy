@@ -152,16 +152,26 @@
         </div>
     </div>
     
-    <!-- ES Modules loaded dynamically inside Babel -->
+    <!-- React & Firebase App -->
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useRef, useCallback } from 'https://esm.sh/react@18.2.0';
-        import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
-        import { marked } from 'https://esm.sh/marked@10.0.0';
-        import DOMPurify from 'https://esm.sh/dompurify@3.0.6';
+        const { useState, useEffect, useRef, useCallback } = React;
+        const { createRoot } = ReactDOM;
         
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+        // --- Config & Canvas Storage Setup ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyCURQx_sKChUpkWCEgX4nAcr81402LDdNw", authDomain: "mydairy-4fb6b.firebaseapp.com",
+            databaseURL: "https://mydairy-4fb6b-default-rtdb.firebaseio.com", projectId: "mydairy-4fb6b",
+            storageBucket: "mydairy-4fb6b.firebasestorage.app", messagingSenderId: "19962289772",
+            appId: "1:19962289772:web:d5715b159dbfd4315dc249"
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // --- Error Boundary (Failsafe) ---
         class ErrorBoundary extends React.Component {
@@ -178,25 +188,6 @@
                 return this.props.children;
             }
         }
-
-        // --- Config & Fast Storage Setup ---
-        let isCanvasEnv = typeof __firebase_config !== 'undefined';
-        let firebaseConfig = isCanvasEnv ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyCURQx_sKChUpkWCEgX4nAcr81402LDdNw", authDomain: "mydairy-4fb6b.firebaseapp.com",
-            databaseURL: "https://mydairy-4fb6b-default-rtdb.firebaseio.com", projectId: "mydairy-4fb6b",
-            storageBucket: "mydairy-4fb6b.firebasestorage.app", messagingSenderId: "19962289772",
-            appId: "1:19962289772:web:d5715b159dbfd4315dc249"
-        };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        let appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const getCollectionPath = (collectionName, userId) => isCanvasEnv ? `artifacts/${appId}/users/${userId}/${collectionName}` : `users/${userId}/${collectionName}`;
-
-        const storage = {
-            get: (key, def) => { try { const i = localStorage.getItem(key); return i ? JSON.parse(i) : def; } catch { return def; } },
-            set: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch { return false; } }
-        };
 
         // --- Data Defaults ---
         const writingPrompts = ["What made you smile today?", "Write about a challenge you overcame recently.", "If today was a color, what would it be and why?", "What are three things you are grateful for right now?", "Describe a dream you had recently."];
@@ -320,10 +311,10 @@
             return (
                 <div className="fixed inset-0 modal-overlay flex items-center justify-center z-[9000] text-white">
                     <div className="text-center">
-                        <div className="breathing-circle glass-panel mb-16 mx-auto flex items-center justify-center">
+                        <div className="breathing-circle glass-panel mb-16 mx-auto flex items-center justify-center w-24 h-24 rounded-full shadow-[0_0_50px_rgba(74,222,128,0.3)]">
                             <i className="fas fa-leaf text-4xl opacity-50 text-green-400"></i>
                         </div>
-                        <h2 className="text-5xl md:text-6xl font-light mb-12 tracking-[0.2em] drop-shadow-2xl">{breathingText}</h2>
+                        <h2 className="text-5xl md:text-6xl font-light mb-12 tracking-[0.2em] drop-shadow-2xl transition-all duration-1000">{breathingText}</h2>
                         <button onClick={onClose} className="px-10 py-4 glass-button rounded-full font-bold tracking-wider uppercase text-sm hover:bg-white/20 transition-all">End Session</button>
                     </div>
                 </div>
@@ -393,11 +384,29 @@
         };
 
         // --- MAIN APP COMPONENT ---
-        const DiaryApp = () => {
+        const App = () => {
             // App & Network State
-            const [cloudStatus, setCloudStatus] = useState('checking'); 
             const [user, setUser] = useState(null);
-            const [firebaseLibs, setFirebaseLibs] = useState(null);
+            
+            // Helper functions for dynamic database paths (Canvas vs Local)
+            const getColl = useCallback((colName) => {
+                return typeof __firebase_config !== 'undefined' 
+                    ? collection(db, 'artifacts', appId, 'users', user.uid, colName) 
+                    : collection(db, 'users', user.uid, colName);
+            }, [user]);
+
+            const getDocument = useCallback((colName, docId) => {
+                return typeof __firebase_config !== 'undefined' 
+                    ? doc(db, 'artifacts', appId, 'users', user.uid, colName, docId) 
+                    : doc(db, 'users', user.uid, colName, docId);
+            }, [user]);
+
+            // Auth UI State
+            const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+            const [authEmail, setAuthEmail] = useState('');
+            const [authPassword, setAuthPassword] = useState('');
+            const [authName, setAuthName] = useState('');
+            const [authLoading, setAuthLoading] = useState(true);
             
             // Navigation & UI State
             const [currentRoute, setCurrentRoute] = useState('dashboard');
@@ -406,35 +415,27 @@
             const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
             const [viewMode, setViewMode] = useState('grid');
             const [focusMode, setFocusMode] = useState(false);
-            const [privacyMode, setPrivacyMode] = useState(storage.get('privacyMode', false));
             
-            // Security State
-            const [appPin, setAppPin] = useState(storage.get('appPin', null));
-            const [isUnlocked, setIsUnlocked] = useState(!storage.get('appPin', null));
+            // Preferences / Settings from Cloud
+            const [appName, setAppName] = useState("Uday's Pro Diary");
+            const [textSize, setTextSize] = useState('normal');
+            const [privacyMode, setPrivacyMode] = useState(false);
+            const [appPin, setAppPin] = useState(null);
+            const [isUnlocked, setIsUnlocked] = useState(true);
             const [pinInput, setPinInput] = useState('');
 
             // Feature States
             const [urlInputMode, setUrlInputMode] = useState(null);
             const [tempUrl, setTempUrl] = useState('');
 
-            // Data State (Optimistic loading from LocalStorage)
-            const initialEntry = { 
-                id: 1, title: 'Welcome to Uday\'s Diary', 
-                content: 'Welcome to **Uday\'s Master Diary Pro**!\n\nI have fully integrated the **Media Integration Bar** you requested. When editing a note, simply click **Add Cover Image** or **Add YouTube Video** right below your title to directly paste a URL. It binds specifically to that single note.\n\nEnjoy writing, Uday!', 
-                date: new Date().toISOString(), mood: 'happy', weather: 'sunny', isFavorite: true, color: 'blue', 
-                location: 'Hyderabad, Telangana, India', tags: ['welcome'], notebook: 'Main Diary',
-                backgroundImage: null, youtubeUrl: null
-            };
-            
-            const [entries, setEntries] = useState(storage.get('diaryEntries', [initialEntry]));
-            const [trash, setTrash] = useState(storage.get('diaryTrash', []));
-            const [notebooks, setNotebooks] = useState(storage.get('diaryNotebooks', ['Main Diary', 'Travel', 'Work', 'Ideas']));
+            // Data State
+            const [entries, setEntries] = useState([]);
+            const [trash, setTrash] = useState([]);
+            const [notebooks, setNotebooks] = useState(['Main Diary', 'Travel', 'Work', 'Ideas']);
             const [currentNotebook, setCurrentNotebook] = useState('All');
             const [currentEntry, setCurrentEntry] = useState(null);
             
-            // Preferences
-            const [appName, setAppName] = useState(storage.get('appName', "Uday's Pro Diary"));
-            const [textSize, setTextSize] = useState(storage.get('textSize', 'normal'));
+            // Filters
             const [searchQuery, setSearchQuery] = useState('');
             const [sortBy, setSortBy] = useState('newest');
             const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -448,20 +449,9 @@
             const [deleteModal, setDeleteModal] = useState({ isOpen: false, entryId: null });
             const [promptModal, setPromptModal] = useState({ isOpen: false });
 
-            // Auth State
-            const [name, setName] = useState('');
-            const [email, setEmail] = useState('');
-            const [password, setPassword] = useState('');
-            const [isSignUp, setIsSignUp] = useState(false);
-            const [authLoading, setAuthLoading] = useState(false);
-
             // Refs
             const vantaRef = useRef(null);
             const vantaEffectRef = useRef(null);
-            const audioContextRef = useRef(null);
-            const analyserRef = useRef(null);
-            const animationFrameRef = useRef(null);
-            const saveEntryRef = useRef(null);
             const currentEntryRef = useRef(currentEntry);
             const currentRouteRef = useRef(currentRoute);
 
@@ -483,136 +473,176 @@
                 return () => { if (vantaEffectRef.current && !isUnlocked) { vantaEffectRef.current.destroy(); vantaEffectRef.current = null; } };
             }, [isUnlocked, currentRoute]);
 
-            // --- FIREBASE BACKGROUND LOAD ---
+            // --- STRICT FIREBASE AUTH SEQUENCE ---
             useEffect(() => {
-                const loadFirebase = async () => {
+                const initAuth = async () => {
+                    setAuthLoading(true);
                     try {
-                        const [appMod, authMod, fsMod] = await Promise.all([
-                            import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
-                            import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"),
-                            import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js")
-                        ]);
-                        
-                        const fbApp = appMod.initializeApp(firebaseConfig);
-                        const fbAuth = authMod.getAuth(fbApp);
-                        const fbDb = fsMod.getFirestore(fbApp);
-                        setFirebaseLibs({ authMod, fsMod, auth: fbAuth, db: fbDb });
-                        
-                        if (isCanvasEnv) {
-                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await authMod.signInWithCustomToken(fbAuth, __initial_auth_token);
-                            else await authMod.signInAnonymously(fbAuth);
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
                         }
-
-                        authMod.onAuthStateChanged(fbAuth, (u) => {
-                            setUser(u); setCloudStatus(u ? 'connected' : 'needs_login');
-                        });
-                    } catch (e) { console.error("Cloud unavailable", e); setCloudStatus('offline'); }
+                    } catch (e) {
+                        console.error("Auth failed:", e);
+                    }
                 };
-                loadFirebase();
+                initAuth();
+                
+                const unsubscribe = onAuthStateChanged(auth, (u) => {
+                    setUser(u);
+                    if (!u) {
+                        // Strict data isolation: Clear local state on logout
+                        setEntries([]);
+                        setTrash([]);
+                        setNotebooks(['Main Diary', 'Travel', 'Work', 'Ideas']);
+                        setAppPin(null);
+                        setIsUnlocked(true);
+                    }
+                    setAuthLoading(false);
+                });
+                return () => unsubscribe();
             }, []);
 
-            // Background Data Sync
+            // --- SECURE DATA SYNC & SETTINGS LOAD ---
             useEffect(() => {
-                if (cloudStatus !== 'connected' || !user || !firebaseLibs) return;
-                const { fsMod, db } = firebaseLibs;
+                if (!user) return;
                 
-                const entriesUnsub = fsMod.onSnapshot(
-                    fsMod.collection(db, getCollectionPath('entries', user.uid)), 
+                // Fetch user preferences
+                const settingsUnsub = onSnapshot(getDocument('settings', 'preferences'), (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        if (data.appName) setAppName(data.appName);
+                        if (data.textSize) setTextSize(data.textSize);
+                        if (data.privacyMode !== undefined) setPrivacyMode(data.privacyMode);
+                        if (data.notebooks) setNotebooks(data.notebooks);
+                        if (data.appPin) {
+                            setAppPin(data.appPin);
+                            setIsUnlocked(false);
+                        } else {
+                            setAppPin(null);
+                            setIsUnlocked(true);
+                        }
+                    }
+                }, (err) => console.error(err));
+
+                // Fetch Diary Entries
+                const entriesUnsub = onSnapshot(
+                    getColl('entries'), 
                     (snap) => {
                         const data = []; snap.forEach(d => data.push(d.data()));
-                        if (data.length > 0) { setEntries(data); storage.set('diaryEntries', data); }
+                        
+                        // Smart Welcome Note for Brand New Accounts
+                        if (snap.empty && data.length === 0) {
+                            const initialEntry = { 
+                                id: Date.now(), title: 'Welcome to Uday\'s Diary', 
+                                content: 'Welcome to **Uday\'s Master Diary Pro**!\n\nYour account is now 100% private and secure. All data on this account is strictly isolated.\n\nEnjoy writing, Uday!', 
+                                date: new Date().toISOString(), mood: 'happy', weather: 'sunny', isFavorite: true, color: 'blue', 
+                                location: 'Hyderabad, Telangana', tags: ['welcome'], notebook: 'Main Diary',
+                                backgroundImage: null, youtubeUrl: null
+                            };
+                            setEntries([initialEntry]);
+                            setDoc(getDocument('entries', initialEntry.id.toString()), initialEntry).catch(e => console.error(e));
+                        } else {
+                            setEntries(data); 
+                        }
                     },
-                    (error) => {
-                        console.error("Entries Sync Error", error);
-                        showToast("Live sync disconnected. Working locally.");
-                        setCloudStatus('offline');
-                    }
+                    (error) => console.error("Entries Sync Error", error)
                 );
                 
-                const trashUnsub = fsMod.onSnapshot(
-                    fsMod.collection(db, getCollectionPath('trash', user.uid)), 
+                // Fetch Trash
+                const trashUnsub = onSnapshot(
+                    getColl('trash'), 
                     (snap) => {
                         const data = []; snap.forEach(d => data.push(d.data()));
-                        setTrash(data); storage.set('diaryTrash', data);
+                        setTrash(data);
                     },
-                    (error) => {
-                        console.error("Trash Sync Error", error);
-                    }
+                    (error) => console.error("Trash Sync Error", error)
                 );
                 
-                return () => { entriesUnsub(); trashUnsub(); };
-            }, [user, cloudStatus, firebaseLibs, showToast]);
+                return () => { entriesUnsub(); trashUnsub(); settingsUnsub(); };
+            }, [user, getColl, getDocument]);
+
+            // Generic Setting Updater
+            const updateSetting = async (key, value) => {
+                if (!user) return;
+                try {
+                    await setDoc(getDocument('settings', 'preferences'), { [key]: value }, { merge: true });
+                } catch(e) { 
+                    console.error("Failed to update setting:", e); 
+                    showToast("Save Error: Check Firestore Rules");
+                }
+            };
 
             // Auto-Save Management
             useEffect(() => { currentEntryRef.current = currentEntry; currentRouteRef.current = currentRoute; }, [currentEntry, currentRoute]);
-            const saveEntry = async (entry, isSilent = false) => {
+            
+            const saveEntryRef = useRef(null);
+            
+            const saveEntry = useCallback(async (entry, isSilent = false) => {
+                if (!user) return;
                 setEntries(prev => {
                     const updated = prev.map(e => e.id === entry.id ? entry : e);
                     if (!prev.find(e => e.id === entry.id)) updated.push(entry);
-                    storage.set('diaryEntries', updated); return updated;
+                    return updated;
                 });
-                if (cloudStatus === 'connected' && user && firebaseLibs) {
-                    const { fsMod, db } = firebaseLibs;
-                    try { await fsMod.setDoc(fsMod.doc(db, getCollectionPath('entries', user.uid), entry.id.toString()), entry); } catch(e) {}
+                try { 
+                    await setDoc(getDocument('entries', entry.id.toString()), entry); 
+                    if (!isSilent) showToast('Memory saved securely');
+                } catch(e) { 
+                    console.error(e); 
+                    if (!isSilent) showToast('Save Error: Check Firestore Rules');
                 }
-                if (!isSilent) showToast('Memory saved securely');
-            };
+            }, [user, getDocument, showToast]);
+
             useEffect(() => { saveEntryRef.current = saveEntry; }, [saveEntry]);
 
-            const [showScrollTop, setShowScrollTop] = useState(false);
             useEffect(() => {
-                const handleScroll = () => setShowScrollTop(window.scrollY > 300);
-                window.addEventListener('scroll', handleScroll);
                 const autoSaveInterval = setInterval(() => {
-                    if (currentRouteRef.current === 'editor' && currentEntryRef.current && currentEntryRef.current.id && saveEntryRef.current) {
-                        saveEntryRef.current(currentEntryRef.current, true);
+                    if (currentRouteRef.current === 'editor' && currentEntryRef.current && currentEntryRef.current.id) {
+                        if (saveEntryRef.current) saveEntryRef.current(currentEntryRef.current, true);
                     }
                 }, 15000);
-                return () => { window.removeEventListener('scroll', handleScroll); clearInterval(autoSaveInterval); };
-            }, []);
+                return () => clearInterval(autoSaveInterval);
+            }, [user]);
 
             // Data Operations
             const deleteEntry = async (entryId) => {
+                if (!user) return;
                 const deletedItem = entries.find(e => e.id === entryId); if (!deletedItem) return;
-                setEntries(prev => { const updated = prev.filter(e => e.id !== entryId); storage.set('diaryEntries', updated); return updated; });
                 const trashedItem = { ...deletedItem, deletedAt: new Date().toISOString() };
-                setTrash(prev => { const updated = [...prev, trashedItem]; storage.set('diaryTrash', updated); return updated; });
-                if (cloudStatus === 'connected' && user && firebaseLibs) {
-                    const { fsMod, db } = firebaseLibs;
-                    try { await fsMod.setDoc(fsMod.doc(db, getCollectionPath('trash', user.uid), entryId.toString()), trashedItem); await fsMod.deleteDoc(fsMod.doc(db, getCollectionPath('entries', user.uid), entryId.toString())); } catch(e) {}
-                }
-                showToast('Entry moved to trash');
+                
+                try { 
+                    await setDoc(getDocument('trash', entryId.toString()), trashedItem); 
+                    await deleteDoc(getDocument('entries', entryId.toString())); 
+                    showToast('Entry moved to trash');
+                } catch(e) { console.error(e); showToast('Error moving to trash.'); }
             };
             
             const restoreEntry = async (entryId) => {
+                if (!user) return;
                 const itemToRestore = trash.find(e => e.id === entryId); if (!itemToRestore) return;
-                setTrash(prev => { const updated = prev.filter(e => e.id !== entryId); storage.set('diaryTrash', updated); return updated; });
                 const { deletedAt, ...entry } = itemToRestore;
-                setEntries(prev => { const updated = [...prev, entry]; storage.set('diaryEntries', updated); return updated; });
-                if (cloudStatus === 'connected' && user && firebaseLibs) {
-                    const { fsMod, db } = firebaseLibs;
-                    try { await fsMod.setDoc(fsMod.doc(db, getCollectionPath('entries', user.uid), entryId.toString()), entry); await fsMod.deleteDoc(fsMod.doc(db, getCollectionPath('trash', user.uid), entryId.toString())); } catch(e) {}
-                }
-                showToast('Entry restored');
+                
+                try { 
+                    await setDoc(getDocument('entries', entryId.toString()), entry); 
+                    await deleteDoc(getDocument('trash', entryId.toString())); 
+                    showToast('Entry restored');
+                } catch(e) { console.error(e); showToast('Restore failed.'); }
             };
             
             const permanentlyDeleteEntry = async (entryId) => {
-                setTrash(prev => { const updated = prev.filter(e => e.id !== entryId); storage.set('diaryTrash', updated); return updated; });
-                if (cloudStatus === 'connected' && user && firebaseLibs) {
-                    const { fsMod, db } = firebaseLibs;
-                    try { await fsMod.deleteDoc(fsMod.doc(db, getCollectionPath('trash', user.uid), entryId.toString())); } catch(e) {}
-                }
-                showToast('Permanently deleted');
+                if (!user) return;
+                try { await deleteDoc(getDocument('trash', entryId.toString())); showToast('Permanently deleted'); } catch(e) { showToast('Delete failed.'); }
             };
             
             const emptyTrash = async () => {
+                if (!user) return;
                 const currentTrash = [...trash];
-                setTrash([]); storage.set('diaryTrash', []);
-                if (cloudStatus === 'connected' && user && firebaseLibs) {
-                    const { fsMod, db } = firebaseLibs;
-                    try { for (const item of currentTrash) await fsMod.deleteDoc(fsMod.doc(db, getCollectionPath('trash', user.uid), item.id.toString())); } catch(e) {}
-                }
-                showToast('Trash emptied');
+                try { 
+                    for (const item of currentTrash) {
+                        await deleteDoc(getDocument('trash', item.id.toString())); 
+                    }
+                    showToast('Trash emptied');
+                } catch(e) { console.error(e); showToast('Empty trash failed.'); }
             };
 
             const exportEntries = () => {
@@ -622,66 +652,28 @@
             };
             
             const importEntries = () => {
+                if (!user) return;
                 const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json';
-                input.onchange = (e) => {
+                input.onchange = async (e) => {
                     const file = e.target.files[0];
                     if (file) {
                         const reader = new FileReader();
-                        reader.onload = (evt) => {
+                        reader.onload = async (evt) => {
                             try {
                                 const imported = JSON.parse(evt.target.result);
                                 if (Array.isArray(imported)) {
-                                    const merged = [...entries, ...imported.filter(en => !entries.find(ex => ex.id === en.id))];
-                                    setEntries(merged); storage.set('diaryEntries', merged); showToast(`Imported ${imported.length} entries`);
+                                    showToast('Importing to cloud...');
+                                    for (const item of imported) {
+                                        if (!entries.find(ex => ex.id === item.id)) {
+                                            await setDoc(getDocument('entries', item.id.toString()), item);
+                                        }
+                                    }
+                                    showToast(`Imported entries to cloud`);
                                 }
                             } catch (err) { showToast('Invalid backup file format'); }
                         }; reader.readAsText(file);
                     }
                 }; input.click();
-            };
-
-            const handleEmailAuth = async (e) => {
-                e.preventDefault();
-                if (!email || !password || (isSignUp && !name)) return showToast("Required fields missing");
-                if (!firebaseLibs) return showToast("Cloud not ready yet.");
-                const { authMod, auth } = firebaseLibs;
-                setAuthLoading(true);
-                try {
-                    if (isSignUp) {
-                        const userCredential = await authMod.createUserWithEmailAndPassword(auth, email, password);
-                        await authMod.updateProfile(userCredential.user, { displayName: name });
-                        const newAppName = `${name}'s Diary`;
-                        setAppName(newAppName); storage.set('appName', newAppName);
-                        showToast("Account created successfully!");
-                    } else {
-                        const userCredential = await authMod.signInWithEmailAndPassword(auth, email, password);
-                        if (userCredential.user.displayName) {
-                            const newAppName = `${userCredential.user.displayName}'s Diary`;
-                            setAppName(newAppName); storage.set('appName', newAppName);
-                        }
-                        showToast("Signed in successfully!");
-                    }
-                } catch(err) { 
-                    console.error("Auth Error:", err);
-                    if (err.code === 'auth/operation-not-allowed' || err.code === 'auth/admin-restricted-operation') {
-                        if (isCanvasEnv) {
-                            showToast("Email login unavailable. Using secure Canvas session.");
-                            try { await authMod.signInAnonymously(auth); } catch(e) { setCloudStatus('offline'); }
-                        } else {
-                            showToast("Please enable 'Email/Password' sign-in in your Firebase Console.");
-                        }
-                    } else if (err.code === 'auth/email-already-in-use') {
-                        showToast("Email already registered. Please log in.");
-                    } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-                        showToast("Invalid email or password.");
-                    } else if (err.code === 'auth/weak-password') {
-                        showToast("Password must be at least 6 characters.");
-                    } else {
-                        showToast(err.message.replace('Firebase: ', '')); 
-                    }
-                } finally { 
-                    setAuthLoading(false); 
-                }
             };
 
             // Filters & Derived State
@@ -699,9 +691,7 @@
 
             const today = new Date();
             const onThisDayEntries = entries.filter(e => { const ed = new Date(e.date); return ed.getDate() === today.getDate() && ed.getMonth() === today.getMonth() && ed.getFullYear() !== today.getFullYear(); });
-            const dayStreak = storage.get('dayStreak', 1);
-            const wordsToday = entries.filter(e => new Date(e.date).toDateString() === new Date().toDateString()).reduce((sum, e) => sum + (e.content ? e.content.trim().split(/\s+/).filter(w => w.length > 0).length : 0), 0);
-            const dailyGoal = 500; const wordGoalProgress = Math.min(100, (wordsToday / dailyGoal) * 100);
+            const dayStreak = 1; // Compute from dates dynamically if desired
 
             // Editor Features
             const insertMarkdown = (prefix, suffix = '') => {
@@ -713,13 +703,11 @@
                 setTimeout(() => { textarea.focus(); textarea.setSelectionRange(start + prefix.length, end + prefix.length); }, 0);
             };
 
-            const toggleDictation = () => {
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) return showToast('Speech recognition not supported.');
-                const recognition = new SpeechRecognition(); recognition.continuous = false; recognition.interimResults = false;
-                recognition.onstart = () => showToast('Listening... Speak clearly.');
-                recognition.onresult = (e) => { setCurrentEntry(prev => ({ ...prev, content: prev.content + (prev.content && !prev.content.endsWith(' ') ? ' ' : '') + e.results[0][0].transcript })); showToast('Dictation added'); };
-                recognition.start();
+            const autoDetectMood = () => {
+                const text = (currentEntry.content || '').toLowerCase();
+                if (/(happy|joy|great|amazing|love|wonderful|fantastic|good|excited|blessed)/.test(text)) { setCurrentEntry(p => ({ ...p, mood: 'happy' })); showToast('Vibe check: Happy 😊'); } 
+                else if (/(sad|bad|terrible|awful|crying|depressed|angry|hate|upset)/.test(text)) { setCurrentEntry(p => ({ ...p, mood: 'sad' })); showToast('Vibe check: Sad 😢'); } 
+                else { setCurrentEntry(p => ({ ...p, mood: 'neutral' })); showToast('Vibe check: Neutral 😐'); }
             };
 
             const fetchLocation = () => {
@@ -737,31 +725,15 @@
                 );
             };
 
-            const autoDetectMood = () => {
-                const text = (currentEntry.content || '').toLowerCase();
-                if (/(happy|joy|great|amazing|love|wonderful|fantastic|good|excited|blessed)/.test(text)) { setCurrentEntry(p => ({ ...p, mood: 'happy' })); showToast('Vibe check: Happy 😊'); } 
-                else if (/(sad|bad|terrible|awful|crying|depressed|angry|hate|upset)/.test(text)) { setCurrentEntry(p => ({ ...p, mood: 'sad' })); showToast('Vibe check: Sad 😢'); } 
-                else { setCurrentEntry(p => ({ ...p, mood: 'neutral' })); showToast('Vibe check: Neutral 😐'); }
-            };
-
             const insertTemplate = (template) => { setCurrentEntry(prev => ({ ...prev, content: (prev.content ? prev.content + '\n\n' : '') + template.content, title: prev.title || template.name })); setShowTemplateModal(false); showToast(`Applied ${template.name}`); };
             const generatePrompt = () => { setCurrentEntry(prev => ({ ...prev, content: `**Prompt:** *${writingPrompts[Math.floor(Math.random() * writingPrompts.length)]}*\n\n` + (prev.content || '') })); showToast('Inspiration added!'); };
 
             const handleTTS = () => {
                 if (!('speechSynthesis' in window)) { showToast('Text-to-speech not supported.'); return; }
-                window.speechSynthesis.cancel(); // Stop any currently playing audio
+                window.speechSynthesis.cancel();
                 const textToSpeak = (currentEntry.title || 'Untitled') + ". " + (currentEntry.content || '');
                 window.speechSynthesis.speak(new SpeechSynthesisUtterance(textToSpeak));
                 showToast('Playing audio...');
-            };
-
-            const handleShare = async () => {
-                const text = `${currentEntry.title}\n\n${currentEntry.content}`;
-                if (navigator.share) {
-                    try { await navigator.share({ title: currentEntry.title, text: text }); } catch (e) {}
-                } else {
-                    navigator.clipboard.writeText(text); showToast('Copied to clipboard');
-                }
             };
 
             const handleExportMD = () => {
@@ -771,6 +743,114 @@
                 const a = document.createElement('a'); a.href = url; a.download = `${currentEntry.title ? currentEntry.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'diary_entry'}.md`; a.click();
                 URL.revokeObjectURL(url); showToast('Markdown downloaded');
             };
+
+            const handleAuthSubmit = async (e) => {
+                e.preventDefault();
+                setAuthLoading(true);
+                try {
+                    if (authMode === 'signup') {
+                        const userCred = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+                        await updateProfile(userCred.user, { displayName: authName || 'Uday Kumar' });
+                        showToast('Account created successfully!');
+                    } else {
+                        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+                        showToast('Welcome back!');
+                    }
+                } catch (err) {
+                    if (err.code === 'auth/operation-not-allowed') {
+                        showToast('Email Auth is disabled in this Firebase project. Use Guest Login instead.');
+                    } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+                        showToast('Invalid email or password.');
+                    } else if (err.code === 'auth/email-already-in-use') {
+                        showToast('Email already in use. Please sign in.');
+                    } else {
+                        showToast(err.message.replace('Firebase: ', ''));
+                    }
+                } finally {
+                    setAuthLoading(false);
+                }
+            };
+
+            const handleGuestLogin = async () => {
+                setAuthLoading(true);
+                try {
+                    await signInAnonymously(auth);
+                    showToast('Logged in as Guest!');
+                } catch (err) {
+                    showToast('Guest login failed: ' + err.message);
+                    setAuthLoading(false);
+                }
+            };
+
+            // Render Loading Screen
+            if (authLoading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-[#050505]">
+                        <i className="fas fa-circle-notch fa-spin text-4xl text-blue-500"></i>
+                    </div>
+                );
+            }
+
+            // Render Sign In / Sign Up Screen
+            if (!user) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4 relative z-10 selection:bg-blue-500/30">
+                        <div ref={vantaRef} className="fixed inset-0 -z-10 bg-[#050505]"></div>
+                        <div className="glass-panel p-8 sm:p-10 max-w-sm w-full text-center relative overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.15)] animate-fadeIn">
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+                            
+                            <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                                <i className="fas fa-lock text-3xl text-blue-400 drop-shadow-[0_0_10px_rgba(96,165,250,0.8)]"></i>
+                            </div>
+                            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Master Diary Pro</h2>
+                            <p className="text-gray-400 text-sm mb-8 font-medium">
+                                {authMode === 'signup' ? "Create your secure vault" : "Access your secure vault"}
+                            </p>
+                            
+                            <form onSubmit={handleAuthSubmit} className="space-y-4 mb-6">
+                                {authMode === 'signup' && (
+                                    <input 
+                                        type="text" placeholder="Full Name (e.g. Uday Kumar)" 
+                                        value={authName} onChange={e => setAuthName(e.target.value)} 
+                                        className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
+                                        required 
+                                    />
+                                )}
+                                <input 
+                                    type="email" placeholder="Email Address" 
+                                    value={authEmail} onChange={e => setAuthEmail(e.target.value)} 
+                                    className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
+                                    required 
+                                />
+                                <input 
+                                    type="password" placeholder="Password" 
+                                    value={authPassword} onChange={e => setAuthPassword(e.target.value)} 
+                                    className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
+                                    required minLength="6" 
+                                />
+                                <button type="submit" disabled={authLoading} className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-transform hover:-translate-y-1 flex justify-center items-center gap-2 mt-2">
+                                    {authMode === 'signup' ? "Sign Up" : "Sign In"}
+                                </button>
+
+                                <div className="relative flex py-2 items-center">
+                                    <div className="flex-grow border-t border-white/10"></div>
+                                    <span className="flex-shrink-0 mx-4 text-gray-500 text-xs font-bold uppercase tracking-wider">Or</span>
+                                    <div className="flex-grow border-t border-white/10"></div>
+                                </div>
+                                
+                                <button type="button" onClick={handleGuestLogin} disabled={authLoading} className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-bold transition-colors flex justify-center items-center gap-2">
+                                    <i className="fas fa-user-astronaut"></i> Continue as Guest
+                                </button>
+                            </form>
+                            
+                            <button type="button" onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="text-blue-400 hover:text-blue-300 font-medium text-sm transition-colors block w-full">
+                                {authMode === 'login' ? "Need an account? Create one" : "Already have an account? Log In"}
+                            </button>
+                        </div>
+                        {toastMessage && <Toast message={toastMessage} />}
+                    </div>
+                );
+            }
 
             // Render Lock Screen
             if (!isUnlocked && appPin) {
@@ -814,61 +894,6 @@
                 );
             }
 
-            // Render Sign In / Sign Up Screen
-            if (cloudStatus === 'needs_login') {
-                return (
-                    <div className="min-h-screen flex items-center justify-center p-4 relative z-10 selection:bg-blue-500/30">
-                        <div ref={vantaRef} className="fixed inset-0 -z-10 bg-[#050505]"></div>
-                        <div className="glass-panel p-8 sm:p-10 max-w-sm w-full text-center relative overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.15)] animate-fadeIn">
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
-                            
-                            <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                                <i className="fas fa-cloud text-3xl text-blue-400 drop-shadow-[0_0_10px_rgba(96,165,250,0.8)]"></i>
-                            </div>
-                            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Master Diary Pro</h2>
-                            <p className="text-gray-400 text-sm mb-8 font-medium">
-                                {isSignUp ? "Create your secure cloud vault" : "Access your secure cloud vault"}
-                            </p>
-                            
-                            <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
-                                {isSignUp && (
-                                    <input 
-                                        type="text" placeholder="Full Name" 
-                                        value={name} onChange={e => setName(e.target.value)} 
-                                        className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
-                                        required 
-                                    />
-                                )}
-                                <input 
-                                    type="email" placeholder="Email Address" 
-                                    value={email} onChange={e => setEmail(e.target.value)} 
-                                    className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
-                                    required 
-                                />
-                                <input 
-                                    type="password" placeholder="Password" 
-                                    value={password} onChange={e => setPassword(e.target.value)} 
-                                    className="w-full p-4 rounded-xl glass-input text-white outline-none focus:border-blue-500 transition-all text-sm font-medium" 
-                                    required minLength="6" 
-                                />
-                                <button type="submit" disabled={authLoading} className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-transform hover:-translate-y-1 flex justify-center items-center gap-2 mt-2">
-                                    {authLoading ? <i className="fas fa-spinner fa-spin"></i> : (isSignUp ? "Sign Up" : "Sign In")}
-                                </button>
-                            </form>
-                            
-                            <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-blue-400 hover:text-blue-300 font-medium text-sm transition-colors mb-4 block w-full">
-                                {isSignUp ? "Already have an account? Log In" : "Need an account? Create one"}
-                            </button>
-                            
-                            <button onClick={() => setCloudStatus('offline')} className="w-full py-3 glass-button rounded-xl text-sm font-medium text-gray-300 hover:text-white transition-colors">
-                                Use Offline Mode (Local Only)
-                            </button>
-                        </div>
-                        {toastMessage && <Toast message={toastMessage} />}
-                    </div>
-                );
-            }
-
             return (
                 <div className="relative z-10 min-h-screen text-white font-sans selection:bg-blue-500/40">
                     <div ref={vantaRef} className="fixed inset-0 -z-10 bg-[#050505]"></div>
@@ -886,7 +911,7 @@
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <div className="hidden sm:flex text-sm font-bold glass-panel px-4 py-2 text-white items-center gap-2">
-                                            {cloudStatus === 'checking' ? <i className="fas fa-sync fa-spin text-blue-400"></i> : <i className="far fa-clock text-blue-400"></i>} {currentTime}
+                                            <i className="far fa-clock text-blue-400"></i> {currentTime}
                                         </div>
                                         <button onClick={() => setShowSettings(true)} className="w-12 h-12 glass-button rounded-full flex items-center justify-center"><i className="fas fa-sliders-h text-lg"></i></button>
                                     </div>
@@ -912,12 +937,13 @@
                                         <button onClick={() => setViewMode('list')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}><i className="fas fa-list-ul"></i></button>
                                         <button onClick={() => setViewMode('timeline')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${viewMode === 'timeline' ? 'bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/20' : 'text-gray-400 hover:text-white'}`}><i className="fas fa-stream"></i> Flow</button>
                                         <div className="w-[1px] bg-white/10 my-1 mx-1"></div>
-                                        <button onClick={() => { setPrivacyMode(!privacyMode); storage.set('privacyMode', !privacyMode); }} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${privacyMode ? 'bg-red-500/20 text-red-400 border border-red-500/20' : 'text-gray-400 hover:text-white'}`} title="Privacy Blur"><i className={`fas fa-${privacyMode ? 'eye-slash' : 'eye'}`}></i></button>
+                                        <button onClick={() => { setPrivacyMode(!privacyMode); updateSetting('privacyMode', !privacyMode); }} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${privacyMode ? 'bg-red-500/20 text-red-400 border border-red-500/20' : 'text-gray-400 hover:text-white'}`} title="Privacy Blur"><i className={`fas fa-${privacyMode ? 'eye-slash' : 'eye'}`}></i></button>
                                         <button onClick={() => setShowZenMode(true)} className="px-4 py-2 rounded-xl text-sm font-medium text-purple-400 hover:bg-purple-500/20 transition-all"><i className="fas fa-spa"></i> Zen</button>
                                     </div>
                                     <div className="flex gap-3 flex-wrap">
                                         <button onClick={() => setShowFavoritesOnly(!showFavoritesOnly)} className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${showFavoritesOnly ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'glass-button text-gray-300 border-transparent'}`}><i className="fas fa-star mr-2"></i>Favorites</button>
                                         <button onClick={() => setCurrentRoute('insights')} className="px-4 py-2.5 glass-button rounded-xl font-bold text-sm text-teal-400 border-transparent hover:border-teal-500/30"><i className="fas fa-chart-simple mr-2"></i>Insights</button>
+                                        <button onClick={() => setCurrentRoute('trash')} className="px-4 py-2.5 glass-button rounded-xl font-bold text-sm text-red-400 border-transparent hover:border-red-500/30"><i className="fas fa-trash mr-2"></i>Trash</button>
                                     </div>
                                 </div>
                             </div>
@@ -1089,7 +1115,7 @@
                                         )}
                                     </div>
                                 )}
-
+                                
                                 {!focusMode && (
                                     <div className="mb-8 flex gap-2 overflow-x-auto hide-scrollbar bg-black/30 p-2.5 rounded-2xl border border-white/10 sticky top-28 z-50 shadow-lg backdrop-blur-md">
                                         <button onClick={() => setShowTemplateModal(true)} className="px-4 py-2 shrink-0 flex items-center gap-2 rounded-xl bg-white/5 hover:bg-indigo-500/20 text-indigo-300 text-sm font-bold transition-all border border-transparent hover:border-indigo-500/30"><i className="fas fa-layer-group"></i> Templates</button>
@@ -1133,7 +1159,7 @@
                                     {currentEntry.audioMemo && (
                                         <div className="bg-black/40 p-4 rounded-2xl border border-white/10 flex items-center gap-4 shadow-inner">
                                             <div className="w-12 h-12 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0 text-xl"><i className="fas fa-microphone-lines"></i></div>
-                                            <audio controls src={currentEntry.audioMemo} onPlay={handleAudioPlay} onPause={handleAudioPause} onEnded={handleAudioPause} className="w-full h-12 outline-none rounded-full glass-input"></audio>
+                                            <audio controls src={currentEntry.audioMemo} className="w-full h-12 outline-none rounded-full glass-input"></audio>
                                             <button onClick={() => setCurrentEntry({...currentEntry, audioMemo: null})} className="w-12 h-12 shrink-0 text-gray-400 hover:text-red-400 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center transition-colors"><i className="fas fa-trash"></i></button>
                                         </div>
                                     )}
@@ -1336,47 +1362,39 @@
                                 <div className="space-y-8">
                                     <div className="glass-panel p-6 rounded-3xl">
                                         <h3 className="text-xs font-black text-cyan-400 mb-5 uppercase tracking-[0.2em]">Account Status</h3>
-                                        {user ? (
-                                            <div>
-                                                <div className="flex items-center gap-4 mb-5">
-                                                    <div className="w-12 h-12 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
-                                                        <i className="fas fa-user"></i>
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-white text-lg">{user.displayName || 'Uday Kumar'}</p>
-                                                        <p className="text-sm text-gray-400">{user.email || 'Cloud Linked User'}</p>
-                                                    </div>
+                                        <div>
+                                            <div className="flex items-center gap-4 mb-5">
+                                                <div className="w-12 h-12 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
+                                                    <i className="fas fa-user"></i>
                                                 </div>
-                                                <button onClick={async () => { 
-                                                    if (firebaseLibs) { 
-                                                        await firebaseLibs.authMod.signOut(firebaseLibs.auth); 
-                                                        setShowSettings(false);
-                                                        setCloudStatus('needs_login');
-                                                        showToast('Logged out successfully');
-                                                    } 
-                                                }} className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl font-bold transition-colors">Sign Out Securely</button>
+                                                <div>
+                                                    <p className="font-bold text-white text-lg">{user.displayName || 'Uday Kumar'}</p>
+                                                    <p className="text-sm text-gray-400">{user.email || 'Cloud Linked Account'}</p>
+                                                </div>
                                             </div>
-                                        ) : (
-                                            <div>
-                                                <p className="font-bold text-white text-lg mb-1">Offline Mode</p>
-                                                <p className="text-sm text-gray-400 mb-4">Your data is only stored in this browser.</p>
-                                                <button onClick={() => { setCloudStatus('needs_login'); setShowSettings(false); }} className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-transform hover:-translate-y-1">
-                                                    Connect Cloud Account
-                                                </button>
-                                            </div>
-                                        )}
+                                            <button onClick={async () => { 
+                                                try {
+                                                    await signOut(auth);
+                                                    setShowSettings(false);
+                                                } catch (e) {
+                                                    showToast("Failed to sign out.");
+                                                }
+                                            }} className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl font-bold transition-colors shadow-inner flex items-center justify-center gap-2">
+                                                <i className="fas fa-right-from-bracket"></i> Sign Out Securely
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="glass-panel p-6 rounded-3xl">
                                         <h3 className="text-xs font-black text-blue-400 mb-5 uppercase tracking-[0.2em]">Privacy Vault</h3>
                                         <p className="text-sm text-gray-300 mb-5 font-medium">Require a 4-digit PIN to open the diary.</p>
                                         {appPin ? (
-                                            <button onClick={() => { storage.set('appPin', null); setAppPin(null); showToast('PIN Removed'); }} className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl font-bold transition-colors">Disable PIN Lock</button>
+                                            <button onClick={() => { updateSetting('appPin', null); setAppPin(null); showToast('PIN Removed'); }} className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl font-bold transition-colors">Disable PIN Lock</button>
                                         ) : (
                                             <button onClick={() => { 
                                                 setPromptModal({ 
                                                     isOpen: true, title: 'Set 4-Digit PIN', placeholder: 'e.g. 1234',
                                                     onConfirm: (p) => { 
-                                                        if(p && /^\d{4}$/.test(p)) { storage.set('appPin', p); setAppPin(p); showToast('Vault Locked'); } 
+                                                        if(p && /^\d{4}$/.test(p)) { updateSetting('appPin', p); setAppPin(p); showToast('Vault Locked'); } 
                                                         else showToast('Must be exactly 4 digits');
                                                         setPromptModal({isOpen: false});
                                                     }, onCancel: () => setPromptModal({isOpen: false}) 
@@ -1388,12 +1406,12 @@
                                     <div className="glass-panel p-6 rounded-3xl">
                                         <h3 className="text-xs font-black text-purple-400 mb-5 uppercase tracking-[0.2em]">Appearance</h3>
                                         <label className="block text-sm text-white font-bold mb-3">Diary Name</label>
-                                        <input type="text" value={appName} onChange={(e) => { setAppName(e.target.value); storage.set('appName', e.target.value); }} className="w-full px-5 py-4 mb-6 glass-input rounded-xl text-white font-bold" />
+                                        <input type="text" value={appName} onChange={(e) => { setAppName(e.target.value); updateSetting('appName', e.target.value); }} className="w-full px-5 py-4 mb-6 glass-input rounded-xl text-white font-bold" />
                                         
                                         <label className="block text-sm text-white font-bold mb-3">Reader Text Size</label>
                                         <div className="flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
                                             {['small', 'normal', 'large'].map(s => (
-                                                <button key={s} onClick={() => { setTextSize(s); storage.set('textSize', s); }} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all capitalize ${textSize === s ? 'bg-white/20 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}>{s}</button>
+                                                <button key={s} onClick={() => { setTextSize(s); updateSetting('textSize', s); }} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all capitalize ${textSize === s ? 'bg-white/20 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}>{s}</button>
                                             ))}
                                         </div>
                                     </div>
@@ -1407,7 +1425,7 @@
                                             setPromptModal({ 
                                                 isOpen: true, title: 'New Notebook Name', placeholder: 'e.g. Dreams',
                                                 onConfirm: (n) => { 
-                                                    if(n && !notebooks.includes(n)) { const newNbs = [...notebooks, n]; setNotebooks(newNbs); storage.set('diaryNotebooks', newNbs); showToast('Notebook added'); } 
+                                                    if(n && !notebooks.includes(n)) { const newNbs = [...notebooks, n]; setNotebooks(newNbs); updateSetting('notebooks', newNbs); showToast('Notebook added'); } 
                                                     setPromptModal({isOpen: false});
                                                 }, onCancel: () => setPromptModal({isOpen: false}) 
                                             }); 
@@ -1439,7 +1457,7 @@
         const root = createRoot(document.getElementById('root'));
         root.render(
             <ErrorBoundary>
-                <DiaryApp />
+                <App />
             </ErrorBoundary>
         );
     </script>
